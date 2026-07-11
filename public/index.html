@@ -1,0 +1,51 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>High School Basketball Season Statistics Dashboard - Prototype</title>
+
+<style>
+  :root{--bg:#f5f7fb;--card:#fff;--ink:#182235;--muted:#667085;--orange:#f97316;--blue:#1e40af;--line:#e6eaf2;--green:#16a34a}
+  *{box-sizing:border-box} body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+  .screen{display:none;min-height:100vh}.screen.active{display:block}
+  .login{display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#111827,#1e3a8a);color:white;padding:30px}
+  .login-card{width:min(960px,100%);display:grid;grid-template-columns:1fr 1fr;background:#fff;color:var(--ink);border-radius:28px;overflow:hidden;box-shadow:0 30px 70px #0005}
+  .hero{background:radial-gradient(circle at top right,#fb923c,#1e40af 62%,#111827);color:white;padding:56px}.hero h1{font-size:42px;line-height:1.05;margin:0 0 16px}.hero p{font-size:18px;opacity:.92}.auth{padding:56px}.logo{font-weight:800;color:var(--orange);letter-spacing:.04em}.btn{border:0;border-radius:12px;padding:13px 18px;font-weight:700;cursor:pointer;background:var(--blue);color:white}.btn.secondary{background:#eef2ff;color:#1e40af}.btn.orange{background:var(--orange)}.btn.ghost{background:white;color:var(--ink);border:1px solid var(--line)}
+  .topbar{height:68px;background:white;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:3}.brand{font-weight:900}.brand span{color:var(--orange)}.wrap{display:grid;grid-template-columns:270px 1fr;gap:22px;padding:22px}.sidebar{background:white;border:1px solid var(--line);border-radius:18px;padding:20px;height:calc(100vh - 112px);position:sticky;top:90px}.filter label{display:block;font-size:12px;color:var(--muted);font-weight:700;margin:18px 0 7px}.filter select,.filter input{width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;background:#fff}.main{min-width:0}.grid{display:grid;gap:18px}.kpis{grid-template-columns:repeat(4,1fr)}.card{background:white;border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 8px 26px #1822350a}.kpi .v{font-size:31px;font-weight:900}.kpi .l{color:var(--muted);font-size:13px}.pill{display:inline-block;border-radius:999px;padding:5px 10px;background:#ecfdf5;color:#047857;font-size:12px;font-weight:800}.two{grid-template-columns:1.35fr .9fr}.three{grid-template-columns:repeat(3,1fr)}h2,h3{margin:0 0 12px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px;border-bottom:1px solid var(--line);font-size:14px}th{color:var(--muted);font-size:12px;text-transform:uppercase}.nav button{display:block;width:100%;text-align:left;margin:6px 0}.modal{display:none;position:fixed;inset:0;background:#0008;z-index:10;align-items:center;justify-content:center}.modal.active{display:flex}.modal-card{background:white;border-radius:22px;max-width:560px;width:92%;padding:26px}.drop{border:2px dashed #cbd5e1;border-radius:18px;padding:40px;text-align:center;background:#f8fafc}.check{color:var(--green);font-weight:900}.footer-note{color:var(--muted);font-size:12px;margin-top:14px}@media(max-width:900px){.login-card,.wrap,.two,.three,.kpis{grid-template-columns:1fr}.sidebar{height:auto;position:static}.hero{padding:36px}.auth{padding:36px}}
+</style>
+</head>
+<body>
+<section id="login" class="screen active login">
+  <div class="login-card">
+    <div class="hero"><div class="logo">COURTVISION MVP</div><h1>Season stats dashboard for high school coaches.</h1><p>Upload MaxPreps/MP Advantage CSVs, aggregate games, filter trends, and export staff-ready reports.</p></div>
+    <div class="auth"><h2>Coach Login</h2><p style="color:var(--muted)">Prototype login for Group 3 dashboard demo.</p><button class="btn" onclick="show('dashboard')">Sign in with Google</button><p class="footer-note">Demo account: Riverside High · 2025–2026 Season</p></div>
+  </div>
+</section>
+<section id="dashboard" class="screen">
+  <div class="topbar"><div class="brand"><span>🏀</span> High School Basketball Dashboard</div><div><button class="btn ghost" onclick="openModal()">Upload CSV</button> <button class="btn orange" onclick="window.print()">Export PDF</button></div></div>
+  <div class="wrap">
+    <aside class="sidebar"><h3>Filters</h3><div class="filter">
+      <label>Player</label><select><option>All players</option><option>J. Smith</option><option>M. Johnson</option><option>T. Brown</option></select>
+      <label>Date Range</label><input type="date" value="2026-01-15"><label>Game Window</label><select><option>Full season</option><option>Last 3 games</option><option>Last 5 games</option></select>
+      <label>Opponent</label><select><option>All opponents</option><option>Central</option><option>Westview</option></select><label>Home/Away</label><select><option>Both</option><option>Home</option><option>Away</option></select><label>Wins/Losses</label><select><option>All games</option><option>Wins</option><option>Losses</option></select>
+    </div><div class="nav" style="margin-top:22px"><button class="btn secondary" onclick="scrollToId('players')">Player Table</button><button class="btn secondary" onclick="scrollToId('trends')">Trends</button><button class="btn secondary" onclick="scrollToId('export')">Export</button></div></aside>
+    <main class="main">
+      <div class="grid kpis"><div class="card kpi"><div class="l">Record</div><div class="v">18–5</div><span class="pill">78% win rate</span></div><div class="card kpi"><div class="l">Avg Points</div><div class="v">63.4</div><span class="pill">+5.8 last 5</span></div><div class="card kpi"><div class="l">FG%</div><div class="v">46.8%</div><span class="pill">Efficient</span></div><div class="card kpi"><div class="l">Assists/Game</div><div class="v">15.1</div><span class="pill">Team play</span></div></div>
+      <div id="trends" class="grid two" style="margin-top:18px"><div class="card"><h3>Team Points Trend</h3><canvas id="line"></canvas></div><div class="card"><h3>Player PPG Comparison</h3><canvas id="bar"></canvas></div></div>
+      <div id="players" class="card" style="margin-top:18px"><h3>Season Player Statistics</h3><table><thead><tr><th>Player</th><th>GP</th><th>PPG</th><th>RPG</th><th>APG</th><th>FG%</th><th>3P%</th><th>A/T</th></tr></thead><tbody><tr><td>J. Smith</td><td>23</td><td>18.2</td><td>8.4</td><td>4.3</td><td>51%</td><td>38%</td><td>2.1</td></tr><tr><td>M. Johnson</td><td>22</td><td>13.5</td><td>6.0</td><td>2.5</td><td>46%</td><td>33%</td><td>1.4</td></tr><tr><td>T. Brown</td><td>23</td><td>9.1</td><td>3.2</td><td>5.7</td><td>44%</td><td>36%</td><td>2.8</td></tr><tr><td>A. Carter</td><td>19</td><td>7.8</td><td>5.1</td><td>1.2</td><td>49%</td><td>22%</td><td>0.9</td></tr></tbody></table></div>
+      <div id="export" class="grid three" style="margin-top:18px"><div class="card"><h3>CSV Import Status</h3><p><span class="check">✓</span> 23 games imported</p><p><span class="check">✓</span> Duplicate detection active</p></div><div class="card"><h3>Coach Insight</h3><p>Last 5 games show improved ball movement and fewer turnovers.</p></div><div class="card"><h3>PDF Snapshot</h3><p>Exports active filters, charts, team name, season, and date.</p><button class="btn orange" onclick="window.print()">Export PDF</button></div></div>
+    </main>
+  </div>
+</section>
+<div class="modal" id="modal"><div class="modal-card"><h2>Upload Game CSV</h2><div class="drop"><h3>Drag CSV files here</h3><p>or browse MaxPreps / MP Advantage exports</p><button class="btn" onclick="fakeImport()">Browse Files</button></div><div id="status" class="footer-note"></div><p style="text-align:right"><button class="btn ghost" onclick="closeModal()">Close</button></p></div></div>
+<script>
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');setTimeout(drawCharts,50)}
+function openModal(){document.getElementById('modal').classList.add('active')} function closeModal(){document.getElementById('modal').classList.remove('active')} function fakeImport(){document.getElementById('status').innerHTML='✓ Required columns found<br>✓ Game ID assigned: GAME-024<br>✓ Import successful'} function scrollToId(id){document.getElementById(id).scrollIntoView({behavior:'smooth'})}
+let drawn=false;function drawCharts(){if(drawn)return;drawn=true;drawLine();drawBar()}
+function drawLine(){const c=document.getElementById('line'),x=c.getContext('2d');c.width=c.parentElement.clientWidth-40;c.height=260;let data=[54,61,58,67,72,69],pad=35,w=c.width,h=c.height,min=50,max=75;x.clearRect(0,0,w,h);x.strokeStyle='#e6eaf2';x.lineWidth=1;for(let i=0;i<5;i++){let y=pad+i*(h-2*pad)/4;x.beginPath();x.moveTo(pad,y);x.lineTo(w-pad,y);x.stroke()}x.strokeStyle='#1e40af';x.lineWidth=4;x.beginPath();data.forEach((d,i)=>{let px=pad+i*(w-2*pad)/(data.length-1),py=h-pad-(d-min)/(max-min)*(h-2*pad);i?x.lineTo(px,py):x.moveTo(px,py)});x.stroke();x.fillStyle='#182235';x.font='13px Arial';['G1','G5','G10','G15','G20','G23'].forEach((l,i)=>x.fillText(l,pad+i*(w-2*pad)/5-8,h-10));}
+function drawBar(){const c=document.getElementById('bar'),x=c.getContext('2d');c.width=c.parentElement.clientWidth-40;c.height=260;let labels=['Smith','Johnson','Brown','Carter'],data=[18.2,13.5,9.1,7.8],pad=35,w=c.width,h=c.height,max=20;x.clearRect(0,0,w,h);x.fillStyle='#1e40af';data.forEach((d,i)=>{let bw=(w-2*pad)/data.length*.62,px=pad+i*(w-2*pad)/data.length+18,bh=d/max*(h-2*pad);x.fillRect(px,h-pad-bh,bw,bh);x.fillStyle='#182235';x.font='13px Arial';x.fillText(labels[i],px,h-10);x.fillText(d,px,h-pad-bh-6);x.fillStyle='#1e40af'});}
+</script>
+</body>
+</html> 
