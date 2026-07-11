@@ -1,0 +1,37 @@
+{
+  "name": "ds_practicum",
+  "version": "1.0.0",
+  "description": "general purpose web application",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "test": "jest",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shikaile/aHiddenArchive.git"
+  },
+  "keywords": [
+    "Detroit"
+  ],
+  "author": "史开乐",
+  "license": "UNLICENSED",
+  "bugs": {
+    "url": "https://github.com/shikaile/aHiddenArchive/issues"
+  },
+  "homepage": "https://github.com/shikaile/aHiddenArchive#readme",
+  "devDependencies": {
+    "jest": "^29.3.1",
+    "nodemon": "^3.1.10"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.0",
+    "dotenv": "^16.0.3",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "pg": "^8.13.0"
+  }
+}

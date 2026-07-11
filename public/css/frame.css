@@ -1,0 +1,414 @@
+/* Header / navigation styling */
+
+.mdl-layout-title {
+	font-family: 'Playfair Display', 'Roboto', serif;
+	font-size: 32px;
+	font-weight: 700;
+	letter-spacing: 0.5px;
+	text-decoration: none;
+	color: inherit;
+}
+
+.mdl-layout__header-row nav {
+	width: 100%;
+	display: flex;
+	justify-content: center;
+	flex-wrap: wrap;
+}
+
+nav a {
+	display: inline-block;
+	padding: 8px 16px;
+	margin: 0 4px;
+	color: #ff6600;
+	text-decoration: none;
+	font-size: 18px;
+	font-weight: 700;
+	border-radius: 4px;
+	transition: background-color 0.15s ease-in-out;
+}
+
+nav a:hover {
+	background-color: rgba(255, 255, 255, 0.15);
+}
+
+nav a.active {
+	background-color: rgba(255, 255, 255, 0.25);
+	font-weight: 500;
+}
+
+/* About page background image */
+body.about-hero {
+	margin: 0;
+}
+
+/* Wrapper that sits below the header/nav in normal document flow, so the
+   image starts after the nav bar instead of stretching behind it. */
+.about-hero-bg {
+	background-image: url('/images/dbd6397c488cfd56fcf37ce2a8f7197a.jpg');
+	background-size: cover;
+	background-position: center center;
+	background-repeat: no-repeat;
+	min-height: 70vh;
+}
+
+.about-hero .hero-content {
+	max-width: 700px;
+	margin: 48px auto;
+	padding: 24px 32px;
+	background-color: rgba(255, 255, 255, 0.88);
+	border-radius: 8px;
+}
+
+/* Welcome modal */
+.modal-overlay {
+	display: none;
+	position: fixed;
+	inset: 0;
+	background-color: rgba(0, 0, 0, 0.55);
+	align-items: center;
+	justify-content: center;
+	z-index: 1000;
+}
+
+.modal-overlay.open {
+	display: flex;
+}
+
+.modal-box {
+	position: relative;
+	background-color: #fff;
+	border-radius: 8px;
+	padding: 32px;
+	max-width: 420px;
+	width: 90%;
+	text-align: center;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.modal-close {
+	position: absolute;
+	top: 8px;
+	right: 12px;
+	background: none;
+	border: none;
+	font-size: 24px;
+	line-height: 1;
+	cursor: pointer;
+	color: #555;
+}
+
+.modal-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	margin-top: 24px;
+}
+
+.modal-btn {
+	display: block;
+	padding: 12px 16px;
+	border-radius: 4px;
+	text-decoration: none;
+	font-weight: 500;
+	color: #fff;
+}
+
+.modal-btn:hover {
+	opacity: 0.9;
+}
+
+.modal-btn-primary {
+	background-color: #3f51b5;
+}
+
+.modal-btn-secondary {
+	background-color: #009688;
+}
+
+.modal-btn-tertiary {
+	background-color: #ff5722;
+}
+
+.modal-subscribe {
+	margin-top: 20px;
+	padding-top: 20px;
+	border-top: 1px solid #eee;
+	text-align: left;
+}
+
+.modal-subscribe-only {
+	margin-top: 24px;
+	padding-top: 0;
+	border-top: none;
+}
+
+.modal-subscribe-label {
+	font-weight: 500;
+	margin: 0 0 8px;
+	text-align: center;
+}
+
+.modal-subscribe .subscribe-form {
+	max-width: none;
+	margin-top: 0;
+}
+
+.modal-subscribe button[type="submit"] {
+	background-color: #ff5722;
+}
+
+/* Subscribe form */
+.subscribe-form {
+	display: flex;
+	gap: 8px;
+	margin-top: 16px;
+	max-width: 400px;
+}
+
+.subscribe-form input[type="email"] {
+	flex: 1;
+	padding: 10px 12px;
+	border: 1px solid #ccc;
+	border-radius: 4px;
+	font-size: 14px;
+}
+
+.subscribe-form button {
+	padding: 10px 16px;
+	background-color: #3f51b5;
+	color: #fff;
+	border: none;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 14px;
+}
+
+.subscribe-form button:hover {
+	opacity: 0.9;
+}
+
+.subscribe-success {
+	color: #2e7d32;
+	font-weight: 500;
+}
+
+/* Archive */
+.archive-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+	gap: 16px;
+	margin-top: 16px;
+}
+
+.archive-image-link {
+	display: block;
+	position: relative;
+	overflow: hidden;
+	border-radius: 6px;
+	cursor: zoom-in;
+}
+
+.archive-image {
+	display: block;
+	width: 100%;
+	height: 220px;
+	object-fit: cover;
+	border-radius: 6px;
+	transition: transform 0.2s ease-in-out;
+}
+
+/* Hover hints that the thumbnail is cropped and the full photo is one click
+   away - the lightbox (triggered on click) shows the complete, uncropped
+   original image. */
+.archive-image-link:hover .archive-image {
+	transform: scale(1.06);
+}
+
+.archive-image-link::after {
+	content: 'View full image';
+	position: absolute;
+	inset: auto 0 0 0;
+	padding: 8px;
+	text-align: center;
+	font-size: 12px;
+	color: #fff;
+	background: linear-gradient(to top, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0));
+	opacity: 0;
+	transform: translateY(100%);
+	transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+}
+
+.archive-image-link:hover::after {
+	opacity: 1;
+	transform: translateY(0);
+}
+
+.archive-error,
+.archive-empty {
+	margin-top: 16px;
+	color: #555;
+}
+
+.archive-error {
+	color: #c62828;
+}
+
+.subscribe-error {
+	color: #c62828;
+	font-weight: 500;
+}
+
+/* Contact page */
+.contact-page {
+	display: flex;
+	justify-content: center;
+	padding: 48px 24px;
+}
+
+.page-stack {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 24px;
+	width: 100%;
+}
+
+/* Compact, rectangular contact box shown below the About content */
+.contact-box-compact {
+	width: 100%;
+	max-width: 480px;
+	background-color: #fff;
+	border: 1px solid #ddd;
+	border-radius: 2px;
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+	padding: 14px 20px;
+	box-sizing: border-box;
+	text-align: left;
+}
+
+.contact-box-compact h2 {
+	margin: 0 0 10px;
+	font-size: 15px;
+	font-weight: 700;
+	text-align: center;
+}
+
+.contact-box-compact .form-row {
+	margin-bottom: 8px;
+	gap: 8px;
+}
+
+.contact-box-compact .form-group label {
+	margin-bottom: 3px;
+	font-size: 12px;
+}
+
+.contact-box-compact .feedback-input {
+	padding: 6px 8px;
+	font-size: 12px;
+}
+
+.contact-box-compact textarea.feedback-input {
+	min-height: 40px;
+}
+
+.contact-box-compact .contact-submit {
+	width: auto;
+	display: block;
+	margin: 2px auto 0;
+	padding: 6px 18px;
+	font-size: 12px;
+}
+
+.contact-card {
+	width: 100%;
+	max-width: 640px;
+	background-color: #fff;
+	border: 1px solid #e0e0e0;
+	border-radius: 8px;
+	box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+	padding: 40px;
+	text-align: center;
+	box-sizing: border-box;
+}
+
+.contact-card h1 {
+	margin: 0 0 8px;
+	font-weight: 700;
+}
+
+.about-body {
+	margin: 0;
+	text-align: left;
+	line-height: 1.6;
+	color: #333;
+}
+
+.contact-subhead {
+	margin: 0 0 32px;
+	color: #666;
+}
+
+.contact-form {
+	text-align: left;
+}
+
+.contact-form .form-row {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	gap: 16px;
+	margin-bottom: 16px;
+}
+
+.contact-form .form-group {
+	display: flex;
+	flex-direction: column;
+}
+
+.contact-form .form-group label {
+	margin-bottom: 6px;
+	font-weight: 500;
+	font-size: 14px;
+	color: #333;
+}
+
+.contact-form .feedback-input {
+	width: 100%;
+	padding: 10px 12px;
+	border: 1px solid #ccc;
+	border-radius: 4px;
+	font-size: 14px;
+	font-family: inherit;
+	box-sizing: border-box;
+}
+
+.contact-form textarea.feedback-input {
+	min-height: 120px;
+	resize: vertical;
+}
+
+.contact-form .feedback-input:focus {
+	outline: none;
+	border-color: #3f51b5;
+	box-shadow: 0 0 0 2px rgba(63, 81, 181, 0.15);
+}
+
+.contact-submit {
+	display: block;
+	width: 100%;
+	margin-top: 8px;
+	padding: 12px 16px;
+	background-color: #3f51b5;
+	color: #fff;
+	border: none;
+	border-radius: 4px;
+	font-size: 15px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: opacity 0.15s ease-in-out;
+}
+
+.contact-submit:hover {
+	opacity: 0.9;
+}
