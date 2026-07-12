@@ -108,6 +108,59 @@
             margin-bottom: 20px; 
         }
 
+        /* Form Controls for Manual Input Grid */
+        .manual-form-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .form-field {
+            display: flex;
+            flex-direction: column;
+        }
+        .form-field label {
+            font-size: 11px;
+            color: #ff6600;
+            font-weight: bold;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+        .form-field input {
+            background: #0d0f12;
+            border: 1px solid #283141;
+            padding: 8px;
+            border-radius: 6px;
+            color: white;
+            font-size: 13px;
+        }
+        .form-field input:focus {
+            outline: none;
+            border-color: #ff6600;
+        }
+
+        /* Ingestion Section Navigation Tabs */
+        .tab-bar {
+            display: flex;
+            gap: 10px;
+            border-bottom: 1px solid #283141;
+            margin-bottom: 15px;
+        }
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: #9aa5b5;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            border-bottom: 2px solid transparent;
+        }
+        .tab-btn.active {
+            color: #ff6600;
+            border-bottom-color: #ff6600;
+        }
+
         /* File Upload Presentation Wrapper Elements */
         .upload-btn-wrapper { 
             position: relative; 
@@ -139,6 +192,22 @@
             top: 0; 
             opacity: 0; 
             cursor: pointer; 
+        }
+
+        .action-btn {
+            background: #ff6600;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 13px;
+            width: 100%;
+            transition: background 0.2s;
+        }
+        .action-btn:hover {
+            background: #e65c00;
         }
 
         /* Dynamic System Message Text */
@@ -181,15 +250,75 @@
 
         <!-- Upper Control Dashboard Row Grid Split -->
         <div class="ingestion-grid">
-            <!-- Left Card: CSV Ingest -->
-            <div class="card">
-                <h3>Ingest Game Statistics</h3>
-                <p>Select and upload a raw single-game box score CSV data file to trigger immediate real-time trend pipeline updates.</p>
-                
-                <div class="upload-btn-wrapper">
-                    <button class="btn">+ Drag & Drop or Click to Select Box Score CSV data file</button>
-                    <input type="file" id="csv-file-picker" accept=".csv" />
+            <!-- Left Card: Dynamic Data Entry Panel -->
+            <div class="card" style="min-height: 275px;">
+                <div class="tab-bar">
+                    <button class="tab-btn active" id="tab-csv-btn" onclick="switchIngestMode('csv')">📁 Upload CSV File</button>
+                    <button class="tab-btn" id="tab-manual-btn" onclick="switchIngestMode('manual')">✍️ Manual Entry Form</button>
                 </div>
+
+                <!-- CSV Upload Wrapper Block -->
+                <div id="wrapper-csv-ingest">
+                    <p>Select and upload a raw single-game box score CSV data file to trigger immediate real-time trend pipeline updates.</p>
+                    <div class="upload-btn-wrapper">
+                        <button class="btn">+ Drag & Drop or Click to Select Box Score CSV data file</button>
+                        <input type="file" id="csv-file-picker" accept=".csv" />
+                    </div>
+                </div>
+
+                <!-- Manual Individual Entry Form Block -->
+                <div id="wrapper-manual-ingest" style="display: none;">
+                    <form id="manual-stats-form" onsubmit="executeManualUpload(event)">
+                        <div class="manual-form-grid">
+                            <div class="form-field" style="grid-column: span 3;">
+                                <label>Player Name</label>
+                                <input type="text" id="m-name" placeholder="e.g. Marcus Earhart" required>
+                            </div>
+                            <div class="form-field">
+                                <label>MIN (MP)</label>
+                                <input type="number" id="m-min" value="0" min="0" required>
+                            </div>
+                            <div class="form-field">
+                                <label>PTS (Points)</label>
+                                <input type="number" id="m-pts" value="0" min="0" required>
+                            </div>
+                            <div class="form-field">
+                                <label>AST (Assists)</label>
+                                <input type="number" id="m-ast" value="0" min="0" required>
+                            </div>
+                            <div class="form-field">
+                                <label>REB (Rebounds)</label>
+                                <input type="number" id="m-reb" value="0" min="0" required>
+                            </div>
+                            <div class="form-field">
+                                <label>STL (Steals)</label>
+                                <input type="number" id="m-stl" value="0" min="0" required>
+                            </div>
+                            <div class="form-field">
+                                <label>BLK (Blocks)</label>
+                                <input type="number" id="m-blk" value="0" min="0" required>
+                            </div>
+                            <div class="form-field">
+                                <label>TO (Turnovers)</label>
+                                <input type="number" id="m-to" value="0" min="0" required>
+                            </div>
+                            <div class="form-field">
+                                <label>FGM</label>
+                                <input type="number" id="m-fgm" value="0" min="0" required>
+                            </div>
+                            <div class="form-field">
+                                <label>FGA</label>
+                                <input type="number" id="m-fga" value="0" min="0" required>
+                            </div>
+                            <div class="form-field" style="grid-column: span 3;">
+                                <label>3PM (Three Pointers)</label>
+                                <input type="number" id="m-tpm" value="0" min="0" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="action-btn">Submit Single Player Entry</button>
+                    </form>
+                </div>
+
                 <div id="upload-status" class="status-msg"></div>
             </div>
 
@@ -198,11 +327,11 @@
                 <h3>Manage Uploaded Game Logs</h3>
                 <p>Full tracking pipeline auditing. Review existing database records sequentially and permanently delete erroneous games if needed.</p>
                 
-                <div style="flex-grow: 1; overflow-y: auto; max-height: 140px; border: 1px solid #283141; border-radius: 6px; background: #0d0f12; padding: 5px;">
+                <div style="flex-grow: 1; overflow-y: auto; max-height: 160px; border: 1px solid #283141; border-radius: 6px; background: #0d0f12; padding: 5px;">
                     <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
                         <thead>
                             <tr style="color: #ff6600; border-bottom: 1px solid #283141;">
-                                <th style="padding: 6px;">File Source</th>
+                                <th style="padding: 6px;">File/Data Source</th>
                                 <th style="padding: 6px; text-align: right;">Actions</th>
                             </tr>
                         </thead>
@@ -289,6 +418,27 @@
         // Dynamic multi-tenant router path bounds in Firestore depending on the logged-in coach name
         const teamDocRef = doc(db, "teams", `sandbox_${coachName || "guest"}`);
 
+        // Interactive View Controller Tab Switcher
+        window.switchIngestMode = function(mode) {
+            const csvBtn = document.getElementById("tab-csv-btn");
+            const manualBtn = document.getElementById("tab-manual-btn");
+            const csvWrapper = document.getElementById("wrapper-csv-ingest");
+            const manualWrapper = document.getElementById("wrapper-manual-ingest");
+
+            if(mode === 'csv') {
+                csvBtn.classList.add("active");
+                manualBtn.classList.remove("active");
+                csvWrapper.style.display = "block";
+                manualWrapper.style.display = "none";
+            } else {
+                manualBtn.classList.add("active");
+                csvBtn.classList.remove("active");
+                manualWrapper.style.display = "block";
+                csvWrapper.style.display = "none";
+            }
+            document.getElementById("upload-status").innerText = "";
+        }
+
         document.getElementById("csv-file-picker").addEventListener("change", (event) => {
             const file = event.target.files[0];
             if (!file) return;
@@ -367,6 +517,50 @@
                 console.error("Firestore Core Processing Error:", error);
                 document.getElementById("upload-status").innerHTML = 
                     `<span style="color: #ff3333;">Pipeline Ingestion Failure: ${error.message}</span>`;
+            }
+        }
+
+        // Direct Individual Form Manual Upload Processing Logic
+        window.executeManualUpload = async function(event) {
+            event.preventDefault();
+            document.getElementById("upload-status").style.color = "#ff6600";
+            document.getElementById("upload-status").innerText = "Injecting custom data profile record...";
+
+            try {
+                const batch = writeBatch(db);
+                const timestampId = `game_${Date.now()}`;
+                const nameVal = document.getElementById("m-name").value.trim();
+                const gameDocRef = doc(collection(teamDocRef, "games"), timestampId);
+
+                batch.set(doc(collection(teamDocRef, "player_box_scores")), {
+                    gameId: timestampId,
+                    playerName: nameVal,
+                    minutes: Number(document.getElementById("m-min").value) || 0,
+                    points: Number(document.getElementById("m-pts").value) || 0,
+                    assists: Number(document.getElementById("m-ast").value) || 0,
+                    rebounds: Number(document.getElementById("m-reb").value) || 0,
+                    steals: Number(document.getElementById("m-stl").value) || 0,
+                    blocks: Number(document.getElementById("m-blk").value) || 0,
+                    turnovers: Number(document.getElementById("m-to").value) || 0,
+                    fgm: Number(document.getElementById("m-fgm").value) || 0,
+                    fga: Number(document.getElementById("m-fga").value) || 0,
+                    tpm: Number(document.getElementById("m-tpm").value) || 0
+                });
+
+                batch.set(gameDocRef, {
+                    gameId: timestampId,
+                    sourceFile: `Manual: ${nameVal}`,
+                    dateUploaded: new Date()
+                });
+
+                await batch.commit();
+                document.getElementById("upload-status").innerHTML = `<span style="color: #00ff66;">Manual Entry Captured Successfully!</span>`;
+                document.getElementById("manual-stats-form").reset();
+                loadSeasonAnalytics();
+
+            } catch(error) {
+                console.error(error);
+                document.getElementById("upload-status").innerHTML = `<span style="color: #ff3333;"> capturing failed.</span>`;
             }
         }
 
