@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CourtVision Analytics Dashboard</title>
+    <style>
+        /* Premium Dark Dashboard Palette with Court Background Overlay */
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            background-color: #0d0f12; 
+            background-image: linear-gradient(rgba(13, 15, 18, 0.85), rgba(13, 15, 18, 0.95)), 
+                              url('https://images.unsplash.com/photo-1544698310-74ea9d1c8258?q=80&w=1600&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: #f0f2f5; 
+            margin: 0; 
+            padding: 30px; 
+            min-height: 100vh;
+        }
+        .container { 
+            max-width: 1050px; 
+            margin: 0 auto; 
+        }
+        
+        /* Layout Header Elements */
+        .header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-bottom: 2px solid #ff6600; 
+            padding-bottom: 20px; 
+            margin-bottom: 40px; 
+        }
+        .header h1 { 
+            color: #ffffff; 
+            margin: 0; 
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        .header h1 span {
+            color: #ff6600; 
+        }
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        #coach-profile { 
+            background-color: #161a22; 
+            padding: 8px 16px; 
+            border-radius: 20px; 
+            font-size: 14px; 
+            font-weight: 600;
+            border: 1px solid #283141;
+            color: #ff6600;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        .logout-btn {
+            background-color: transparent;
+            color: #ff6600;
+            border: 1px solid #ff6600;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }
+        .logout-btn:hover {
+            background-color: #ff6600;
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(255, 102, 0, 0.4);
+        }
+
+        /* Two-Column Top Ingestion Layout Split */
+        .ingestion-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        /* Structured Component Cards */
+        .card { 
+            background-color: rgba(22, 26, 34, 0.9); 
+            border: 1px solid #283141; 
+            padding: 25px; 
+            border-radius: 12px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px); 
+        }
+        .card h3 { 
+            margin-top: 0; 
+            font-size: 18px; 
+            color: #ffffff; 
+            font-weight: 700;
+            letter-spacing: -0.3px;
+            margin-bottom: 12px;
+        }
+        .card p { 
+            color: #9aa5b5; 
+            font-size: 13px; 
+            line-height: 1.5;
+            margin-bottom: 20px; 
+        }
+
+        /* File Upload Presentation Wrapper Elements */
+        .upload-btn-wrapper { 
+            position: relative; 
+            overflow: hidden; 
+            display: inline-block; 
+            width: 100%;
+        }
+        .btn { 
+            border: 2px dashed #ff6600; 
+            color: #ffffff; 
+            background-color: rgba(255, 102, 0, 0.05); 
+            padding: 25px; 
+            border-radius: 8px; 
+            font-weight: bold; 
+            font-size: 15px;
+            cursor: pointer; 
+            width: 100%;
+            text-align: center;
+            transition: all 0.2s ease-in-out;
+        }
+        .upload-btn-wrapper:hover .btn { 
+            background-color: rgba(255, 102, 0, 0.15); 
+            border-style: solid;
+        }
+        .upload-btn-wrapper input[type=file] { 
+            font-size: 100px; 
+            position: absolute; 
+            left: 0; 
+            top: 0; 
+            opacity: 0; 
+            cursor: pointer; 
+        }
+
+        /* Dynamic System Message Text */
+        .status-msg { 
+            margin-top: 15px; 
+            font-size: 13px;
+            font-weight: 600; 
+            text-align: center;
+        }
+
+        /* Small Action Trash Buttons */
+        .delete-btn {
+            background: transparent;
+            border: 1px solid #ff3333;
+            color: #ff3333;
+            padding: 3px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .delete-btn:hover {
+            background: #ff3333;
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Dashboard Branding Header -->
+        <div class="header">
+            <h1>COURT<span>VISION</span></h1>
+            <div class="header-controls">
+                <div id="coach-profile">Active: Loading...</div>
+                <button class="logout-btn" id="logout-trigger-btn">Log Out</button>
+            </div>
+        </div>
+
+        <!-- Upper Control Dashboard Row Grid Split -->
+        <div class="ingestion-grid">
+            <!-- Left Card: CSV Ingest -->
+            <div class="card">
+                <h3>Ingest Game Statistics</h3>
+                <p>Select and upload a raw single-game box score CSV data file to trigger immediate real-time trend pipeline updates.</p>
+                
+                <div class="upload-btn-wrapper">
+                    <button class="btn">+ Drag & Drop or Click to Select Box Score CSV data file</button>
+                    <input type="file" id="csv-file-picker" accept=".csv" />
+                </div>
+                <div id="upload-status" class="status-msg"></div>
+            </div>
+
+            <!-- Right Card: Full Control Transparency Management Panel -->
+            <div class="card" style="display: flex; flex-direction: column;">
+                <h3>Manage Uploaded Game Logs</h3>
+                <p>Full tracking pipeline auditing. Review existing database records sequentially and permanently delete erroneous games if needed.</p>
+                
+                <div style="flex-grow: 1; overflow-y: auto; max-height: 140px; border: 1px solid #283141; border-radius: 6px; background: #0d0f12; padding: 5px;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
+                        <thead>
+                            <tr style="color: #ff6600; border-bottom: 1px solid #283141;">
+                                <th style="padding: 6px;">File Source</th>
+                                <th style="padding: 6px; text-align: right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="game-management-body">
+                            <tr>
+                                <td colspan="2" style="padding: 15px; text-align: center; color: #5f7597; font-style: italic;">No games logged in database.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Real-Time Analytics & Decision Support Layer -->
+        <div class="card" style="margin-bottom: 30px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0;">Two-Way Roster Analytics & Player Momentum</h3>
+                <button class="btn" id="refresh-data-btn" style="padding: 6px 14px; font-size: 12px; width: auto; border-style: solid;">🔄 Recalculate Trends</button>
+            </div>
+            <p>Computed dynamic metric tracking tracking overall production, resource efficiency, and defensive impact. The **Momentum Score** isolates rolling point trajectories against season benchmarks.</p>
+            
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid #ff6600; color: #ff6600;">
+                            <th style="padding: 12px 4px;">Player Name</th>
+                            <th style="padding: 12px 4px; text-align: center;">GP</th>
+                            <th style="padding: 12px 4px; text-align: center;">MPG</th>
+                            <th style="padding: 12px 4px; text-align: center;">PPG</th>
+                            <th style="padding: 12px 4px; text-align: center;">APG</th>
+                            <th style="padding: 12px 4px; text-align: center;">RPG</th>
+                            <th style="padding: 12px 4px; text-align: center;">SPG</th>
+                            <th style="padding: 12px 4px; text-align: center;">BPG</th>
+                            <th style="padding: 12px 4px; text-align: center;">TPG</th>
+                            <th style="padding: 12px 4px; text-align: center;">eFG%</th>
+                            <th style="padding: 12px 4px; text-align: right;">Momentum Score</th>
+                        </tr>
+                    </thead>
+                    <tbody id="roster-trends-body">
+                        <tr>
+                            <td colspan="11" style="padding: 20px; text-align: center; color: #9aa5b5; font-style: italic;">
+                                No season data aggregated yet. Upload a box score CSV above to populate analytics.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Automated Coaching Assistant Layer -->
+        <div class="card" id="assistant-card" style="border-left: 4px solid #ff6600; display: none;">
+            <h3 style="color: #ff6600; margin-bottom: 10px;">💡 CourtVision Tactical Insights</h3>
+            <div id="assistant-recommendation" style="color: #ffffff; font-size: 14px; font-weight: 500; margin: 0; line-height: 1.6;"></div>
+        </div>
+    </div>
+
+    <!-- Script Processing Libraries -->
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+        import { getFirestore, doc, collection, writeBatch, getDocs, query, where, deleteDoc } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAoCTKQ3072pftAkYJgIsGhaR589ljhJ_0",
+            authDomain: "my-solo-project-basket.firebaseapp.com",
+            projectId: "my-solo-project-basket",
+            storageBucket: "my-solo-project-basket.firebasestorage.app",
+            messagingSenderId: "109404963599",
+            appId: "1:109404963599:web:2ab5e946f13cdea8f6347a",
+            measurementId: "G-WVPLEHBQHJ"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Security Session Verification Check
+        const coachName = sessionStorage.getItem("coachName");
+        if (!coachName) {
+            window.location.href = "index.html";
+        } else {
+            document.getElementById("coach-profile").innerText = `Active Sandbox: ${coachName}`;
+        }
+
+        // Dynamic multi-tenant router path bounds in Firestore depending on the logged-in coach name
+        const teamDocRef = doc(db, "teams", `sandbox_${coachName || "guest"}`);
+
+        document.getElementById("csv-file-picker").addEventListener("change", (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            document.getElementById("upload-status").style.color = "#ff6600";
+            document.getElementById("upload-status").innerText = `Executing ingestion engine logic on ${file.name}...`;
+
+            Papa.parse(file, {
+                header: true,
+                dynamicTyping: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    processAndUploadStats(results.data, file.name);
+                }
+            });
+        });
+
+        // Pipeline parsing with fault-tolerant header variations matching tracking formats
+        async function processAndUploadStats(rows, filename) {
+            try {
+                const batch = writeBatch(db);
+                const timestampId = `game_${Date.now()}`;
+                const gameDocRef = doc(collection(teamDocRef, "games"), timestampId);
+
+                let uploadedPlayersCount = 0;
+
+                rows.forEach((row) => {
+                    const playerKey = Object.keys(row).find(k => k.trim().toLowerCase() === 'player');
+                    const playerVal = playerKey ? row[playerKey] : null;
+
+                    if (!playerVal || playerVal.toString().toLowerCase().includes("total")) return;
+
+                    const getVal = (headerName) => {
+                        const key = Object.keys(row).find(k => k.trim().toLowerCase() === headerName.toLowerCase());
+                        return key ? row[key] : 0;
+                    };
+
+                    const fgm = getVal('fgm');
+                    const fga = getVal('fga');
+                    const tpm = getVal('3pm') || getVal('3ptm') || 0; 
+
+                    batch.set(doc(collection(teamDocRef, "player_box_scores")), {
+                        gameId: timestampId,
+                        playerName: playerVal.toString().trim(),
+                        minutes: getVal('mp') || getVal('min') || 0,
+                        points: getVal('pts') || getVal('points') || 0,
+                        assists: getVal('ast') || getVal('assist') || 0,
+                        rebounds: getVal('reb') || getVal('rebounds') || 0,
+                        steals: getVal('stl') || getVal('stls') || 0,
+                        blocks: getVal('blk') || getVal('blks') || 0,
+                        turnovers: getVal('to') || getVal('tov') || 0,
+                        fgm: fgm,
+                        fga: fga,
+                        tpm: tpm
+                    });
+                    uploadedPlayersCount++;
+                });
+
+                if (uploadedPlayersCount > 0) {
+                    batch.set(gameDocRef, {
+                        gameId: timestampId,
+                        sourceFile: filename,
+                        dateUploaded: new Date()
+                    });
+
+                    await batch.commit();
+                    document.getElementById("upload-status").innerHTML = 
+                        `<span style="color: #00ff66;">Engine Success: Parsed and stored records for ${uploadedPlayersCount} players.</span>`;
+                    
+                    loadSeasonAnalytics();
+                } else {
+                    document.getElementById("upload-status").innerHTML = 
+                        `<span style="color: #ffcc00;">Warning: Found 0 players. Verify CSV headers.</span>`;
+                }
+            } catch (error) {
+                console.error("Firestore Core Processing Error:", error);
+                document.getElementById("upload-status").innerHTML = 
+                    `<span style="color: #ff3333;">Pipeline Ingestion Failure: ${error.message}</span>`;
+            }
+        }
+
+        // Dynamic Game Removal Engine
+        window.deleteGameRecord = async function(gameId, displayTitle) {
+            if (!confirm(`Are you absolutely sure you want to delete data logs for [ ${displayTitle} ]?`)) return;
+            
+            try {
+                await deleteDoc(doc(teamDocRef, "games", gameId));
+                
+                const querySnapshot = await getDocs(query(collection(teamDocRef, "player_box_scores"), where("gameId", "==", gameId)));
+                const deleteBatch = writeBatch(db);
+                querySnapshot.forEach((docSnap) => deleteBatch.delete(docSnap.ref));
+                await deleteBatch.commit();
+                
+                alert("Game statistics completely scrubbed!");
+                loadSeasonAnalytics();
+            } catch (err) {
+                console.error("Error executing game delete pipeline:", err);
+            }
+        };
+
+        // Aggregation and advanced calculation framework loop
+        async function loadSeasonAnalytics() {
+            try {
+                // Sync Audit Panel
+                const gamesSnapshot = await getDocs(collection(teamDocRef, "games"));
+                const mgmtBody = document.getElementById("game-management-body");
+                mgmtBody.innerHTML = "";
+                const chronologicalGames = [];
+                
+                gamesSnapshot.forEach((gSnap) => {
+                    const gData = gSnap.data();
+                    chronologicalGames.push(gData);
+                    mgmtBody.innerHTML += `
+                        <tr style="border-bottom: 1px solid #1a222d;">
+                            <td style="padding: 8px 6px; color: #ffffff; font-weight: 500;">${gData.sourceFile}</td>
+                            <td style="padding: 8px 6px; text-align: right;">
+                                <button class="delete-btn" onclick="deleteGameRecord('${gData.gameId}', '${gData.sourceFile}')">🗑️ Remove</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                if (chronologicalGames.length === 0) {
+                    mgmtBody.innerHTML = `<tr><td colspan="2" style="padding: 15px; text-align: center; color: #5f7597; font-style: italic;">No games logged in database.</td></tr>`;
+                }
+
+                chronologicalGames.sort((a, b) => a.gameId.localeCompare(b.gameId));
+
+                // Process Box Scores
+                const querySnapshot = await getDocs(collection(teamDocRef, "player_box_scores"));
+                const playerMap = {};
+
+                querySnapshot.forEach((docSnap) => {
+                    const data = docSnap.data();
+                    const name = data.playerName;
+
+                    if (!playerMap[name]) {
+                        playerMap[name] = { name: name, games: 0, min: 0, pts: 0, ast: 0, reb: 0, stl: 0, blk: 0, to: 0, fgm: 0, fga: 0, tpm: 0, gamePointsArray: [] };
+                    }
+
+                    playerMap[name].games += 1;
+                    playerMap[name].min += data.minutes || 0;
+                    playerMap[name].pts += data.points || 0;
+                    playerMap[name].ast += data.assists || 0;
+                    playerMap[name].reb += data.rebounds || 0;
+                    playerMap[name].stl += data.steals || 0;
+                    playerMap[name].blk += data.blocks || 0;
+                    playerMap[name].to += data.turnovers || 0;
+                    playerMap[name].fgm += data.fgm || 0;
+                    playerMap[name].fga += data.fga || 0;
+                    playerMap[name].tpm += data.tpm || 0;
+                    
+                    playerMap[name].gamePointsArray.push({ gameId: data.gameId, pts: data.points || 0 });
+                });
+
+                const tbody = document.getElementById("roster-trends-body");
+                tbody.innerHTML = ""; 
+
+                const playersArray = Object.values(playerMap);
+                if (playersArray.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="11" style="padding: 20px; text-align: center; color: #9aa5b5; font-style: italic;">No season data found.</td></tr>`;
+                    document.getElementById("assistant-card").style.display = "none";
+                    return;
+                }
+
+                playersArray.forEach((player) => {
+                    const avgMin = (player.min / player.games).toFixed(1);
+                    const avgPts = (player.pts / player.games).toFixed(1);
+                    const avgAst = (player.ast / player.games).toFixed(1);
+                    const avgReb = (player.reb / player.games).toFixed(1);
+                    const avgStl = (player.stl / player.games).toFixed(1);
+                    const avgBlk = (player.blk / player.games).toFixed(1);
+                    const avgTo = (player.to / player.games).toFixed(1);
+                    const eFG = player.fga > 0 ? (((player.fgm + (0.5 * player.tpm)) / player.fga) * 100).toFixed(1) + "%" : "0.0%";
+
+                    let momentumScore = 0;
+                    if (player.gamePointsArray.length >= 2) {
+                        player.gamePointsArray.sort((a, b) => a.gameId.localeCompare(b.gameId));
+                        const recentAvg = (Number(player.gamePointsArray[player.gamePointsArray.length - 1].pts) + Number(player.gamePointsArray[player.gamePointsArray.length - 2].pts)) / 2;
+                        momentumScore = parseFloat((recentAvg - parseFloat(avgPts)).toFixed(1));
+                    }
+
+                    let momentumBadge = `<span style="color: #9aa5b5; font-weight: bold;">${momentumScore > 0 ? '+' : ''}${momentumScore}</span>`;
+                    if (momentumScore >= 0.5) { 
+                        momentumBadge = `<span style="background: rgba(0, 255, 102, 0.15); color: #00ff66; padding: 4px 8px; border-radius: 4px; font-weight: bold;">🔥 +${momentumScore}</span>`;
+                    } else if (momentumScore <= -0.5) {
+                        momentumBadge = `<span style="background: rgba(255, 51, 51, 0.15); color: #ff3333; padding: 4px 8px; border-radius: 4px; font-weight: bold;">📉 ${momentumScore}</span>`;
+                    }
+
+                    tbody.innerHTML += `
+                        <tr style="border-bottom: 1px solid #283141;">
+                            <td style="padding: 12px 4px; font-weight: 600; color: white;">${player.name}</td>
+                            <td style="padding: 12px 4px; text-align: center; color: #9aa5b5;">${player.games}</td>
+                            <td style="padding: 12px 4px; text-align: center; color: white;">${avgMin}</td>
+                            <td style="padding: 12px 4px; text-align: center; color: white;">${avgPts}</td>
+                            <td style="padding: 12px 4px; text-align: center; color: white;">${avgAst}</td>
+                            <td style="padding: 12px 4px; text-align: center; color: white;">${avgReb}</td>
+                            <td style="padding: 12px 4px; text-align: center; color: #00ff66;">${avgStl}</td>
+                            <td style="padding: 12px 4px; text-align: center; color: #00ff66;">${avgBlk}</td>
+                            <td style="padding: 12px 4px; text-align: center; color: #ff3333;">${avgTo}</td>
+                            <td style="padding: 12px 4px; text-align: center; color: #00ff66; font-weight: 600;">${eFG}</td>
+                            <td style="padding: 12px 4px; text-align: right;">${momentumBadge}</td>
+                        </tr>
+                    `;
+                });
+
+                // Multi-Variable Tactical Insights Engine Sync
+                const assistantCard = document.getElementById("assistant-card");
+                const assistantText = document.getElementById("assistant-recommendation");
+                let insightsHtml = "";
+
+                playersArray.forEach((p) => {
+                    let mScore = 0;
+                    if (p.gamePointsArray.length >= 2) {
+                        p.gamePointsArray.sort((a, b) => a.gameId.localeCompare(b.gameId));
+                        const recentAvg = (Number(p.gamePointsArray[p.gamePointsArray.length - 1].pts) + Number(p.gamePointsArray[p.gamePointsArray.length - 2].pts)) / 2;
+                        mScore = recentAvg - (p.pts / p.games);
+                    }
+
+                    const avgPts = (p.pts / p.games);
+                    const avgReb = (p.reb / p.games);
+                    const avgBlk = (p.blk / p.games);
+                    const eFG = p.fga > 0 ? ((p.fgm + (0.5 * p.tpm)) / p.fga) : 0;
+
+                    // Condition 1: Momentum Hot Streak Trigger
+                    if (mScore >= 0.5) {
+                        insightsHtml += `<div style="margin-bottom: 12px;"><strong>🔥 Lineup Optimization Alert:</strong> ${p.name} is surging with an offensive momentum score of <strong>+${mScore.toFixed(1)} PPG</strong> over the last two matchups. Consider expanding tactical sets to leverage this hot streak.</div>`;
+                    }
+
+                    // Condition 2: High-Impact Defensive Anchor Spotlight
+                    if (avgBlk >= 2.0 || avgReb >= 8.0) {
+                        insightsHtml += `<div style="margin-bottom: 12px; border-top: 1px solid rgba(255,102,0,0.2); padding-top: 12px;"><strong>🛡️ Defensive Anchor Spotlight:</strong> ${p.name} is completely anchoring the paint, averaging <strong>${avgReb.toFixed(1)} RPG</strong> and <strong>${avgBlk.toFixed(1)} BPG</strong>. Ensure defensive rotations funnel opponents toward his help-side positioning.</div>`;
+                    }
+
+                    // Condition 3: High-Volume Scoring Efficiency Elite Metric
+                    if (avgPts >= 20.0 && eFG >= 0.60) {
+                        insightsHtml += `<div style="margin-bottom: 12px; border-top: 1px solid rgba(255,102,0,0.2); padding-top: 12px;"><strong>🎯 Elite Efficiency Notice:</strong> ${p.name} is executing at a high-volume, elite efficiency clip (<strong>${avgPts.toFixed(1)} PPG</strong>, <strong>${(eFG*100).toFixed(1)}% eFG%</strong>). The offensive blueprint should continue prioritizing high-value touches for him in early transition sets.</div>`;
+                    }
+                });
+
+                if (insightsHtml !== "") {
+                    assistantCard.style.display = "block";
+                    assistantText.innerHTML = insightsHtml;
+                } else {
+                    assistantCard.style.display = "block";
+                    assistantText.innerHTML = `<strong>System Notice:</strong> Ingestion pipelines active. Awaiting secondary historical box scores to generate dynamic automated tactical insights templates.`;
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        document.getElementById("refresh-data-btn").addEventListener("click", loadSeasonAnalytics);
+        window.addEventListener("DOMContentLoaded", loadSeasonAnalytics);
+        document.getElementById("logout-trigger-btn").addEventListener("click", () => {
+            if (confirm("Log out of CourtVision?")) { sessionStorage.clear(); window.location.href = "index.html"; }
+        });
+    </script>
+</body>
+</html>
