@@ -1,6 +1,5 @@
 const router = require('express').Router();
 const { addSubscriber } = require('../../models/database');
-const { listArchiveImages } = require('../../models/cloudflareImages');
 
 // Reasonably strict but not pedantic - good enough to reject junk/garbage
 // input without rejecting real addresses.
@@ -30,13 +29,6 @@ function isRateLimited(ip) {
 router.get('/', async (req,res) =>{
     let images = [];
     let error = null;
-
-    try {
-        images = await listArchiveImages();
-    } catch (err) {
-        console.error('Failed to load archive images:', err.message);
-        error = 'Unable to load archive images right now.';
-    }
 
     res.render('index', { images, error });
 });

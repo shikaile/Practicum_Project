@@ -41,10 +41,10 @@ app.set('views', path.join(__dirname,'views'));
 
 // Make navigation data available to every view (used by views/partials/header.ejs)
 const navLinks = [
-  { label: 'Archive', path: '/' },
+  { label: 'Home', path: '/' },
   { label: 'About', path: '/about' },
-  { label: 'Participate', path: '/participate' },
-  { label: 'Projects', path: '/projects' },
+  { label: 'Team', path: '/participate' },
+  { label: 'Game', path: '/projects' },
 ];
 
 app.use((req, res, next) => {

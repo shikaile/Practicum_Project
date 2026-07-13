@@ -12,7 +12,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/shikaile/aHiddenArchive.git"
+    "url": "git+https://github.com/shikaile/Practicum_Project.git"
   },
   "keywords": [
     "Detroit"
@@ -20,9 +20,9 @@
   "author": "史开乐",
   "license": "UNLICENSED",
   "bugs": {
-    "url": "https://github.com/shikaile/aHiddenArchive/issues"
+    "url": "https://github.com/shikaile/Practicum_Project"
   },
-  "homepage": "https://github.com/shikaile/aHiddenArchive#readme",
+  "homepage": "https://github.com/shikaile/Practicum_Project",
   "devDependencies": {
     "jest": "^29.3.1",
     "nodemon": "^3.1.10"
