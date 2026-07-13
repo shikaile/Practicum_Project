@@ -51,6 +51,22 @@ function ensureSchema() {
         email TEXT NOT NULL UNIQUE,
         password_hash TEXT NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS teams (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        season INTEGER NOT NULL,
+        sport TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS athletes (
+        id SERIAL PRIMARY KEY,
+        team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `).catch((err) => {
       schemaReadyPromise = null;
@@ -145,4 +161,78 @@ async function verifyUser(email, password) {
   return user;
 }
 
-module.exports = { pool, addSubscriber, getAllSubscribers, createUser, verifyUser };
+// Creates a team owned by the given user.
+async function createTeam(userId, { name, season, sport }) {
+  await ensureSchema();
+
+  const inserted = await pool.query(
+    `INSERT INTO teams (user_id, name, season, sport) VALUES ($1, $2, $3, $4)
+     RETURNING id, name, season, sport, created_at`,
+    [userId, name, season, sport]
+  );
+
+  return inserted.rows[0];
+}
+
+// Returns every team owned by the given user, most recently created first.
+async function getTeamsForUser(userId) {
+  await ensureSchema();
+
+  const result = await pool.query(
+    'SELECT id, name, season, sport, created_at FROM teams WHERE user_id = $1 ORDER BY created_at DESC',
+    [userId]
+  );
+
+  return result.rows;
+}
+
+// Returns the team if it exists and is owned by the given user, else null.
+// Used to authorize roster reads/writes before touching a team's athletes.
+async function getTeamOwnedByUser(teamId, userId) {
+  await ensureSchema();
+
+  const result = await pool.query(
+    'SELECT id, name, season, sport FROM teams WHERE id = $1 AND user_id = $2',
+    [teamId, userId]
+  );
+
+  return result.rows[0] || null;
+}
+
+// Adds an athlete to a team's roster.
+async function addAthlete(teamId, name) {
+  await ensureSchema();
+
+  const inserted = await pool.query(
+    `INSERT INTO athletes (team_id, name) VALUES ($1, $2)
+     RETURNING id, name, created_at`,
+    [teamId, name]
+  );
+
+  return inserted.rows[0];
+}
+
+// Returns a team's roster, in the order athletes were added.
+async function getAthletesForTeam(teamId) {
+  await ensureSchema();
+
+  const result = await pool.query(
+    'SELECT id, name, created_at FROM athletes WHERE team_id = $1 ORDER BY created_at ASC',
+    [teamId]
+  );
+
+  return result.rows;
+}
+
+module.exports = {
+  pool,
+  addSubscriber,
+  getAllSubscribers,
+  createUser,
+  verifyUser,
+  createTeam,
+  getTeamsForUser,
+  getTeamOwnedByUser,
+  addAthlete,
+  getAthletesForTeam,
+};
