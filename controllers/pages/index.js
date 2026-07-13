@@ -1,10 +1,28 @@
 const router = require('express').Router();
-const { addSubscriber } = require('../../models/database');
+const { addSubscriber, createUser, verifyUser } = require('../../models/database');
+const {
+    SESSION_COOKIE_NAME,
+    createSession,
+    destroySession,
+    getSessionFromRequest,
+    getSessionTokenFromRequest,
+} = require('../../models/sessions');
 
 // Reasonably strict but not pedantic - good enough to reject junk/garbage
 // input without rejecting real addresses.
 const EMAIL_PATTERN = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,24}$/;
 const MAX_EMAIL_LENGTH = 254; // RFC 5321 limit
+const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_LENGTH = 72; // bcrypt silently truncates beyond this
+
+function setSessionCookie(res, token) {
+    res.cookie(SESSION_COOKIE_NAME, token, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+}
 
 // Minimal in-memory rate limiter for the subscribe form - no new dependency
 // required. Limits each IP to a handful of submissions per window to curb
@@ -83,6 +101,88 @@ router.post('/subscribe', async (req,res) =>{
             error: 'Something went wrong saving your email. Please try again later.',
         });
     }
+});
+
+router.get('/signup', (req, res) => {
+    if (getSessionFromRequest(req)) return res.redirect('/');
+    res.render('pages/signup', { error: null });
+});
+
+router.post('/signup', async (req, res) => {
+    if (isRateLimited(req.ip)) {
+        return res.status(429).render('pages/signup', {
+            error: 'Too many attempts. Please try again later.',
+        });
+    }
+
+    const email = typeof (req.body && req.body.email) === 'string' ? req.body.email.trim() : '';
+    const password = typeof (req.body && req.body.password) === 'string' ? req.body.password : '';
+
+    if (!email || email.length > MAX_EMAIL_LENGTH || !EMAIL_PATTERN.test(email)) {
+        return res.status(400).render('pages/signup', { error: 'Please enter a valid email.' });
+    }
+
+    if (password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH) {
+        return res.status(400).render('pages/signup', {
+            error: `Password must be between ${MIN_PASSWORD_LENGTH} and ${MAX_PASSWORD_LENGTH} characters.`,
+        });
+    }
+
+    try {
+        const result = await createUser(email, password);
+
+        if (!result.created) {
+            return res.status(400).render('pages/signup', { error: 'An account with that email already exists.' });
+        }
+
+        const token = createSession(result.user);
+        setSessionCookie(res, token);
+        res.redirect('/');
+    } catch (err) {
+        console.error('Failed to create account:', err.message);
+        res.status(500).render('pages/signup', { error: 'Something went wrong creating your account. Please try again later.' });
+    }
+});
+
+router.get('/login', (req, res) => {
+    if (getSessionFromRequest(req)) return res.redirect('/');
+    res.render('pages/login', { error: null });
+});
+
+router.post('/login', async (req, res) => {
+    if (isRateLimited(req.ip)) {
+        return res.status(429).render('pages/login', {
+            error: 'Too many attempts. Please try again later.',
+        });
+    }
+
+    const email = typeof (req.body && req.body.email) === 'string' ? req.body.email.trim() : '';
+    const password = typeof (req.body && req.body.password) === 'string' ? req.body.password : '';
+
+    if (!email || !password) {
+        return res.status(400).render('pages/login', { error: 'Please enter your email and password.' });
+    }
+
+    try {
+        const user = await verifyUser(email, password);
+
+        if (!user) {
+            return res.status(401).render('pages/login', { error: 'Invalid email or password.' });
+        }
+
+        const token = createSession(user);
+        setSessionCookie(res, token);
+        res.redirect('/');
+    } catch (err) {
+        console.error('Failed to log in:', err.message);
+        res.status(500).render('pages/login', { error: 'Something went wrong logging you in. Please try again later.' });
+    }
+});
+
+router.post('/logout', (req, res) => {
+    destroySession(getSessionTokenFromRequest(req));
+    res.clearCookie(SESSION_COOKIE_NAME);
+    res.redirect('/');
 });
 
 module.exports = router;

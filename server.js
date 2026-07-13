@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const routes = require('./controllers');
 const path = require('path');
+const { getSessionFromRequest } = require('./models/sessions');
 const app = express();
 const PORT = process.env.PORT || 8080;
 
@@ -50,6 +51,7 @@ const navLinks = [
 app.use((req, res, next) => {
   res.locals.navLinks = navLinks;
   res.locals.currentPath = req.path;
+  res.locals.user = getSessionFromRequest(req);
   next();
 });
 

@@ -13,6 +13,9 @@
 // failing that, a local default connection.
 
 const { Pool } = require('pg');
+const bcrypt = require('bcrypt');
+
+const BCRYPT_SALT_ROUNDS = 12;
 
 const useSSL = process.env.DATABASE_SSL === 'true';
 
@@ -40,6 +43,13 @@ function ensureSchema() {
       CREATE TABLE IF NOT EXISTS subscribers (
         id SERIAL PRIMARY KEY,
         email TEXT NOT NULL UNIQUE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `).catch((err) => {
@@ -83,4 +93,56 @@ async function getAllSubscribers() {
   return result.rows;
 }
 
-module.exports = { pool, addSubscriber, getAllSubscribers };
+// Creates a new user account with a bcrypt-hashed password.
+// Returns { created: false, reason: 'EMAIL_TAKEN' } if the email is already
+// registered, otherwise { created: true, user }. The plaintext password is
+// never persisted or returned - only the hash is stored.
+async function createUser(email, password) {
+  const normalized = String(email).trim().toLowerCase();
+
+  await ensureSchema();
+
+  const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
+
+  try {
+    const inserted = await pool.query(
+      `INSERT INTO users (email, password_hash) VALUES ($1, $2)
+       RETURNING id, email, created_at`,
+      [normalized, passwordHash]
+    );
+    return { created: true, user: inserted.rows[0] };
+  } catch (err) {
+    if (err.code === '23505') { // unique_violation
+      return { created: false, reason: 'EMAIL_TAKEN' };
+    }
+    throw err;
+  }
+}
+
+// Verifies an email/password combination against the stored bcrypt hash.
+// Returns the user (without the hash) on success, or null on any mismatch.
+async function verifyUser(email, password) {
+  const normalized = String(email).trim().toLowerCase();
+
+  await ensureSchema();
+
+  const result = await pool.query(
+    'SELECT id, email, password_hash, created_at FROM users WHERE email = $1',
+    [normalized]
+  );
+
+  if (result.rows.length === 0) {
+    return null;
+  }
+
+  const user = result.rows[0];
+  const matches = await bcrypt.compare(password, user.password_hash);
+  if (!matches) {
+    return null;
+  }
+
+  delete user.password_hash;
+  return user;
+}
+
+module.exports = { pool, addSubscriber, getAllSubscribers, createUser, verifyUser };

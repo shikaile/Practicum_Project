@@ -31,9 +31,20 @@
 	<!-- Always shows a header, even in smaller screens. -->
 	<div class="mdl-layout--fixed-header mdl-js-layout">
 		<header class="mdl-layout__header mdl-layout__header--waterfall">
-			<div class="mdl-layout__header-row">
+			<div class="mdl-layout__header-row header-row-title">
 				<!-- Title -->
 				<a href="/" class="mdl-layout-title">DS_Practicum</a>
+				<!-- Auth -->
+				<div class="auth-nav">
+					<% if (typeof user !== 'undefined' && user) { %>
+						<span class="auth-email"><%= user.email %></span>
+						<form action="/logout" method="POST" class="auth-logout-form">
+							<button type="submit" class="auth-btn">Log Out</button>
+						</form>
+					<% } else { %>
+						<a href="/login" class="auth-btn">Log In</a>
+					<% } %>
+				</div>
 			</div>
 			<div class="mdl-layout__header-row">
 				<!-- Navigation -->
