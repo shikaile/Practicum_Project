@@ -2,12 +2,11 @@
 // runs on the same Firebase project as `main` (my-solo-project-basket) - see
 // main's public/dashboard.html for the matching client-side Firestore usage.
 //
-// Auth is done via the Firebase Auth REST API rather than the `firebase/auth`
-// client SDK's signInWithEmailAndPassword/createUserWithEmailAndPassword.
-// That SDK keeps one global "current user" per app instance, which is fine
-// for a single browser tab but wrong for a Node server handling concurrent
-// requests from different logged-in users at once. The REST API is
-// stateless per request, which fits an Express server.
+// User accounts (email/password) live in a Firestore `users` collection
+// rather than Firebase Authentication. Firestore itself doesn't hash
+// anything, so passwords are bcrypt-hashed here before being stored -
+// same approach as the earlier Postgres-backed version of this file, just
+// with Firestore as the store instead of a `users` table.
 //
 // The config below is the public web config (safe to keep in source - it's
 // how Firebase web apps work; access is controlled by security rules, not
@@ -23,9 +22,13 @@ const {
   getDoc,
   getDocs,
   setDoc,
+  runTransaction,
   query,
   orderBy,
 } = require('firebase/firestore');
+const bcrypt = require('bcrypt');
+
+const BCRYPT_SALT_ROUNDS = 12;
 
 const firebaseConfig = {
   apiKey: process.env.FIREBASE_API_KEY || 'AIzaSyAoCTKQ3072pftAkYJgIsGhaR589ljhJ_0',
@@ -39,53 +42,52 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const AUTH_BASE_URL = 'https://identitytoolkit.googleapis.com/v1/accounts';
-
-async function firebaseAuthRequest(endpoint, body) {
-  const response = await fetch(`${AUTH_BASE_URL}:${endpoint}?key=${firebaseConfig.apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...body, returnSecureToken: true }),
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    return { ok: false, code: data.error && data.error.message };
-  }
-
-  return { ok: true, data };
-}
-
-// Creates a Firebase Authentication account.
-// Returns { created: false, reason: 'EMAIL_TAKEN' } if the email is already
-// registered, otherwise { created: true, user: { id, email } }. Firebase
-// itself hashes and stores the password - it never passes through here.
+// Creates a user account, storing a bcrypt hash of the password (never the
+// plaintext) in Firestore. Doc ID = the normalized email, so lookups on
+// login don't need a query. A transaction guards against two concurrent
+// signups for the same email both passing the "does this exist" check.
+// Returns { created: false, reason: 'EMAIL_TAKEN' } if already registered,
+// otherwise { created: true, user: { id, email } }.
 async function createUser(email, password) {
   const normalized = String(email).trim().toLowerCase();
-  const result = await firebaseAuthRequest('signUp', { email: normalized, password });
+  const ref = doc(db, 'users', normalized);
+  const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
+  const createdAt = new Date().toISOString();
 
-  if (!result.ok) {
-    if (result.code === 'EMAIL_EXISTS') {
+  try {
+    await runTransaction(db, async (transaction) => {
+      const existing = await transaction.get(ref);
+      if (existing.exists()) {
+        throw new Error('EMAIL_TAKEN');
+      }
+      transaction.set(ref, { email: normalized, passwordHash, createdAt });
+    });
+  } catch (err) {
+    if (err.message === 'EMAIL_TAKEN') {
       return { created: false, reason: 'EMAIL_TAKEN' };
     }
-    throw new Error(result.code || 'Firebase sign-up failed');
+    throw err;
   }
 
-  return { created: true, user: { id: result.data.localId, email: normalized } };
+  return { created: true, user: { id: normalized, email: normalized } };
 }
 
-// Verifies an email/password combination against Firebase Authentication.
+// Verifies an email/password combination against the stored bcrypt hash.
 // Returns { id, email } on success, or null on any mismatch.
 async function verifyUser(email, password) {
   const normalized = String(email).trim().toLowerCase();
-  const result = await firebaseAuthRequest('signInWithPassword', { email: normalized, password });
+  const snapshot = await getDoc(doc(db, 'users', normalized));
 
-  if (!result.ok) {
+  if (!snapshot.exists()) {
     return null;
   }
 
-  return { id: result.data.localId, email: normalized };
+  const matches = await bcrypt.compare(password, snapshot.data().passwordHash);
+  if (!matches) {
+    return null;
+  }
+
+  return { id: normalized, email: normalized };
 }
 
 // Adds an email to the subscribers collection if it isn't already present
