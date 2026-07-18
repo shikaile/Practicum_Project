@@ -5,7 +5,7 @@ const {
     getTeamOwnedByUser,
     addAthlete,
     getAthletesForTeam,
-} = require('../../models/database');
+} = require('../../models/firebase');
 
 // Only basketball is active for team creation right now - other sports are
 // shown in the UI dropdown but rejected here if somehow submitted.
@@ -15,6 +15,11 @@ const MAX_NAME_LENGTH = 100;
 const MIN_SEASON = 1900;
 const MAX_SEASON = 2100;
 const MAX_ATHLETE_NAME_LENGTH = 100;
+
+// Firestore document IDs (used for team IDs) are opaque strings, not the
+// numeric serial IDs Postgres used - sanity-check the shape rather than
+// parsing them as numbers.
+const TEAM_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
 function requireAuth(req, res, next) {
     if (!res.locals.user) {
@@ -62,8 +67,8 @@ router.post('/', requireAuth, async (req, res) => {
 // Roster (athletes) for a specific team - nested under /api/teams/:teamId so
 // ownership can be checked before any read or write.
 router.get('/:teamId/athletes', requireAuth, async (req, res) => {
-    const teamId = Number(req.params.teamId);
-    if (!Number.isInteger(teamId)) {
+    const teamId = req.params.teamId;
+    if (!TEAM_ID_PATTERN.test(teamId)) {
         return res.status(400).json({ error: 'Invalid team id.' });
     }
 
@@ -73,7 +78,7 @@ router.get('/:teamId/athletes', requireAuth, async (req, res) => {
             return res.status(404).json({ error: 'Team not found.' });
         }
 
-        const athletes = await getAthletesForTeam(teamId);
+        const athletes = await getAthletesForTeam(res.locals.user.id, teamId);
         res.json({ athletes });
     } catch (err) {
         console.error('Failed to load roster:', err.message);
@@ -82,8 +87,8 @@ router.get('/:teamId/athletes', requireAuth, async (req, res) => {
 });
 
 router.post('/:teamId/athletes', requireAuth, async (req, res) => {
-    const teamId = Number(req.params.teamId);
-    if (!Number.isInteger(teamId)) {
+    const teamId = req.params.teamId;
+    if (!TEAM_ID_PATTERN.test(teamId)) {
         return res.status(400).json({ error: 'Invalid team id.' });
     }
 
@@ -98,7 +103,7 @@ router.post('/:teamId/athletes', requireAuth, async (req, res) => {
             return res.status(404).json({ error: 'Team not found.' });
         }
 
-        const athlete = await addAthlete(teamId, name);
+        const athlete = await addAthlete(res.locals.user.id, teamId, name);
         res.status(201).json({ athlete });
     } catch (err) {
         console.error('Failed to add athlete:', err.message);

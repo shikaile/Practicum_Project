@@ -21,11 +21,11 @@ app.use((req, res, next) => {
     'Content-Security-Policy',
     [
       "default-src 'self'",
-      "img-src 'self' https://imagedelivery.net data:",
+      "img-src 'self' https://imagedelivery.net https://images.unsplash.com data:",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://code.getmdl.io",
       "font-src 'self' https://fonts.gstatic.com",
-      "script-src 'self' https://cdnjs.cloudflare.com https://code.getmdl.io",
-      "connect-src 'self'",
+      "script-src 'self' https://cdnjs.cloudflare.com https://code.getmdl.io https://www.gstatic.com",
+      "connect-src 'self' https://firestore.googleapis.com https://www.googleapis.com",
     ].join('; ')
   );
   next();
@@ -46,6 +46,7 @@ const navLinks = [
   { label: 'About', path: '/about' },
   { label: 'Team', path: '/participate' },
   { label: 'Game', path: '/projects' },
+  { label: 'Dashboard', path: '/dashboard' },
 ];
 
 app.use((req, res, next) => {

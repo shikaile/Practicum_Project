@@ -28,10 +28,9 @@
     "nodemon": "^3.1.10"
   },
   "dependencies": {
-    "bcrypt": "^5.1.0",
     "dotenv": "^16.0.3",
     "ejs": "^3.1.10",
     "express": "^4.21.2",
-    "pg": "^8.13.0"
+    "firebase": "^12.16.0"
   }
 }

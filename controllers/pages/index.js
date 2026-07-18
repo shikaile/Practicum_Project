@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { addSubscriber, createUser, verifyUser } = require('../../models/database');
+const { addSubscriber, createUser, verifyUser } = require('../../models/firebase');
 const {
     SESSION_COOKIE_NAME,
     createSession,
@@ -13,7 +13,7 @@ const {
 const EMAIL_PATTERN = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,24}$/;
 const MAX_EMAIL_LENGTH = 254; // RFC 5321 limit
 const MIN_PASSWORD_LENGTH = 8;
-const MAX_PASSWORD_LENGTH = 72; // bcrypt silently truncates beyond this
+const MAX_PASSWORD_LENGTH = 72;
 
 function setSessionCookie(res, token) {
     res.cookie(SESSION_COOKIE_NAME, token, {
@@ -66,6 +66,13 @@ router.get('/projects', (req,res) =>{
 
 router.get('/participate', (req,res) =>{
     res.render('pages/participate');
+});
+
+// Ported from the CourtVision dashboard on `main` (public/dashboard.html),
+// wired up to this app's real login instead of main's hardcoded coach list.
+router.get('/dashboard', (req, res) => {
+    if (!res.locals.user) return res.redirect('/login');
+    res.render('pages/dashboard');
 });
 
 // The standalone contact page was merged into /about - redirect old links.
