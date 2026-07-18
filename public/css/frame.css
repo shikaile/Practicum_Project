@@ -600,8 +600,10 @@ body.about-hero {
 	min-width: 160px;
 }
 
-.team-select-row .form-group[hidden] {
-	display: none;
+/* Any element hidden via the `hidden` attribute must actually disappear,
+   even when a more specific class rule above also sets `display`. */
+[hidden] {
+	display: none !important;
 }
 
 .team-select-row .form-group label {
@@ -632,4 +634,58 @@ body.about-hero {
 
 .roster-box .team-form {
 	margin-top: 16px;
+}
+
+/* Game page */
+.game-card {
+	max-width: 900px;
+}
+
+.matchup {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 24px;
+	margin-top: 24px;
+	align-items: flex-start;
+}
+
+.matchup-side {
+	flex: 1;
+	min-width: 220px;
+	text-align: center;
+}
+
+.matchup-vs {
+	align-self: center;
+	padding-top: 10px;
+	font-size: 18px;
+	font-weight: 700;
+	color: #666;
+}
+
+.game-team-picker {
+	margin-top: 12px;
+	text-align: left;
+}
+
+.game-team-option {
+	cursor: pointer;
+	transition: background-color 0.15s ease-in-out;
+}
+
+.game-team-option:hover,
+.game-team-option:focus {
+	background-color: #eef0fb;
+	outline: none;
+}
+
+.game-roster {
+	margin-top: 16px;
+	text-align: left;
+}
+
+.game-roster-title {
+	margin: 0 0 12px;
+	font-size: 15px;
+	text-align: center;
 }

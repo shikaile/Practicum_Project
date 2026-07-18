@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	initContactForm();
 	initArchiveGallery();
 	initTeams();
+	initGamePage();
 });
 
 // Clicking an archive thumbnail opens the full, uncropped original image in
@@ -452,4 +453,128 @@ function initTeams() {
 				showError('Something went wrong adding your team.');
 			});
 	});
+}
+
+// Two independent "Add Team" pickers on the Game page (left/right side of a
+// matchup). Each lets the user pick one of their teams and then shows that
+// team's roster. Only present when a logged-in user is viewing the page
+// (see views/pages/projects.ejs).
+function initGamePage() {
+	var sides = document.querySelectorAll('.matchup-side');
+	if (!sides.length) return;
+
+	var teamsPromise = fetch('/api/teams')
+		.then(function (response) { return response.json(); })
+		.then(function (data) { return data.teams || []; })
+		.catch(function () { return null; });
+
+	sides.forEach(function (side) {
+		initGameSide(side, teamsPromise);
+	});
+}
+
+function initGameSide(side, teamsPromise) {
+	var addBtn = side.querySelector('.game-add-team-btn');
+	var picker = side.querySelector('.game-team-picker');
+	var rosterBox = side.querySelector('.game-roster');
+	var rosterTitle = side.querySelector('.game-roster-title');
+	var rosterList = side.querySelector('.game-roster-list');
+	if (!addBtn || !picker || !rosterBox || !rosterTitle || !rosterList) return;
+
+	addBtn.addEventListener('click', function () {
+		picker.hidden = !picker.hidden;
+	});
+
+	function selectTeam(team) {
+		picker.hidden = true;
+		rosterTitle.textContent = team.name + ' (' + team.sport + ' • ' + team.season + ')';
+		rosterBox.hidden = false;
+		loadGameRoster(team.id, rosterList);
+	}
+
+	teamsPromise.then(function (teams) {
+		picker.innerHTML = '';
+
+		if (!teams) {
+			var errorItem = document.createElement('li');
+			errorItem.className = 'team-list-empty';
+			errorItem.textContent = 'Unable to load teams right now.';
+			picker.appendChild(errorItem);
+			return;
+		}
+
+		if (teams.length === 0) {
+			var empty = document.createElement('li');
+			empty.className = 'team-list-empty';
+			empty.textContent = 'No teams yet. Add one on the Team page.';
+			picker.appendChild(empty);
+			return;
+		}
+
+		teams.forEach(function (team) {
+			var item = document.createElement('li');
+			item.className = 'team-list-item game-team-option';
+			item.tabIndex = 0;
+			item.setAttribute('role', 'button');
+
+			var name = document.createElement('span');
+			name.className = 'team-list-item-name';
+			name.textContent = team.name;
+
+			var meta = document.createElement('span');
+			meta.className = 'team-list-item-meta';
+			meta.textContent = team.sport + ' • ' + team.season;
+
+			item.appendChild(name);
+			item.appendChild(meta);
+
+			item.addEventListener('click', function () { selectTeam(team); });
+			item.addEventListener('keydown', function (event) {
+				if (event.key === 'Enter' || event.key === ' ') {
+					event.preventDefault();
+					selectTeam(team);
+				}
+			});
+
+			picker.appendChild(item);
+		});
+	});
+}
+
+function loadGameRoster(teamId, rosterList) {
+	rosterList.innerHTML = '<li class="team-list-empty">Loading...</li>';
+
+	fetch('/api/teams/' + teamId + '/athletes')
+		.then(function (response) { return response.json(); })
+		.then(function (data) {
+			rosterList.innerHTML = '';
+			var athletes = data.athletes || [];
+
+			if (athletes.length === 0) {
+				var empty = document.createElement('li');
+				empty.className = 'team-list-empty';
+				empty.textContent = 'No athletes yet.';
+				rosterList.appendChild(empty);
+				return;
+			}
+
+			athletes.forEach(function (athlete) {
+				var item = document.createElement('li');
+				item.className = 'team-list-item';
+
+				var name = document.createElement('span');
+				name.className = 'team-list-item-name';
+				name.textContent = athlete.name;
+
+				item.appendChild(name);
+				rosterList.appendChild(item);
+			});
+		})
+		.catch(function () {
+			rosterList.innerHTML = '';
+			var errorItem = document.createElement('li');
+			errorItem.className = 'team-list-empty';
+			errorItem.textContent = 'Unable to load roster right now.';
+			rosterList.appendChild(errorItem);
+		});
 }
