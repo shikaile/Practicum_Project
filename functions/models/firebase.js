@@ -26,7 +26,11 @@ const {
   query,
   orderBy,
 } = require('firebase/firestore');
-const bcrypt = require('bcrypt');
+// bcryptjs (pure JS) rather than bcrypt (native addon) - native modules are
+// a common cause of Cloud Functions deploys failing to even load the
+// function (surfaces as "Unable to find a valid endpoint for function `app`"
+// during deploy, since the require() throws before any routes are defined).
+const bcrypt = require('bcryptjs');
 
 const BCRYPT_SALT_ROUNDS = 12;
 
