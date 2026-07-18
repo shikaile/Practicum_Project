@@ -35,12 +35,12 @@ const bcrypt = require('bcryptjs');
 const BCRYPT_SALT_ROUNDS = 12;
 
 const firebaseConfig = {
-  apiKey: process.env.FIREBASE_API_KEY || 'AIzaSyAoCTKQ3072pftAkYJgIsGhaR589ljhJ_0',
-  authDomain: process.env.FIREBASE_AUTH_DOMAIN || 'my-solo-project-basket.firebaseapp.com',
-  projectId: process.env.FIREBASE_PROJECT_ID || 'my-solo-project-basket',
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || 'my-solo-project-basket.firebasestorage.app',
-  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || '109404963599',
-  appId: process.env.FIREBASE_APP_ID || '1:109404963599:web:2ab5e946f13cdea8f6347a',
+  apiKey: process.env.FIREBASE_API_KEY,
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.FIREBASE_PROJECT_ID,
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.FIREBASE_APP_ID,
 };
 
 const app = initializeApp(firebaseConfig);
