@@ -1,0 +1,35 @@
+===================================================
+BASKETBALL SCOUTING & PYTHON GUIDE
+===================================================
+
+STEP 1: WHERE IS MY EXCEL FILE?
+Your tracking spreadsheet is saved directly on your Mac Desktop:
+Filename: Basketball_Stat_Sheet.xlsx
+
+STEP 2: HOW TO INSTALL TOOLS AGAIN (IF NEEDED)
+If you switch computers or reset your environment, run:
+pip install pandas openpyxl easyocr pillow torch torchvision
+
+STEP 3: HOW TO RUN PYTHON SCRIPTS
+To run any script you create, open Terminal and type:
+python3 script_name.py
+
+STEP 4: AUTOMATED SCRIPT TO EXTRACT TOP PERFORMERS
+Save this code into a python file (e.g., extract_stats.py) when you are ready to analyze data:
+
+import pandas as pd
+
+file_path = "/Users/bilalali/Desktop/Basketball_Stat_Sheet.xlsx"
+df = pd.read_excel(file_path, header=[0, 1], index_col=0)
+players_df = df.iloc[:-1].copy()
+
+players_df[("Calculated Scouting Stats", "eFG%")] = pd.to_numeric(players_df[("Calculated Scouting Stats", "eFG%")])
+
+efficient_shooters = players_df.sort_values(by=("Calculated Scouting Stats", "eFG%"), ascending=False)
+
+print("--- TOP 3 EFFICIENT SHOOTERS ---")
+for index, row in efficient_shooters.head(3).iterrows():
+    player_name = row[("Player Info", "Player")]
+    efg = row[("Calculated Scouting Stats", "eFG%")]
+    print(f"Player: {player_name} | eFG%: {efg:.1%}")
+===================================================
