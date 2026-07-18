@@ -1,0 +1,393 @@
+<%- include("../partials/header.ejs") %>
+
+<!-- CourtVision analytics dashboard, ported from `main`'s public/dashboard.html.
+     Styling/markup/Firestore logic match main; only the coach identity and
+     logout control were adapted to this app's real login (see
+     public/js/dashboard.js for details). -->
+<style>
+    .dashboard-page {
+        font-family: 'Segoe UI', Arial, sans-serif;
+        background-color: #0d0f12;
+        background-image: linear-gradient(rgba(13, 15, 18, 0.85), rgba(13, 15, 18, 0.95)),
+                          url('https://images.unsplash.com/photo-1544698310-74ea9d1c8258?q=80&w=1600&auto=format&fit=crop');
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+        color: #f0f2f5;
+        margin: 0;
+        padding: 30px;
+        min-height: 100vh;
+    }
+    .dashboard-page .container {
+        max-width: 1050px;
+        margin: 0 auto;
+    }
+
+    .dashboard-page .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 2px solid #ff6600;
+        padding-bottom: 20px;
+        margin-bottom: 40px;
+    }
+    .dashboard-page .header h1 {
+        color: #ffffff;
+        margin: 0;
+        font-size: 28px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+    .dashboard-page .header h1 span {
+        color: #ff6600;
+    }
+    .dashboard-page .header-controls {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .dashboard-page #coach-profile {
+        background-color: #161a22;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: 600;
+        border: 1px solid #283141;
+        color: #ff6600;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+    .dashboard-page .logout-btn {
+        background-color: transparent;
+        color: #ff6600;
+        border: 1px solid #ff6600;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+    }
+    .dashboard-page .logout-btn:hover {
+        background-color: #ff6600;
+        color: #ffffff;
+        box-shadow: 0 4px 12px rgba(255, 102, 0, 0.4);
+    }
+
+    .dashboard-page .ingestion-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+
+    .dashboard-page .card {
+        background-color: rgba(22, 26, 34, 0.9);
+        border: 1px solid #283141;
+        padding: 25px;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+        backdrop-filter: blur(4px);
+    }
+    .dashboard-page .card h3 {
+        margin-top: 0;
+        font-size: 18px;
+        color: #ffffff;
+        font-weight: 700;
+        letter-spacing: -0.3px;
+        margin-bottom: 12px;
+    }
+    .dashboard-page .card p {
+        color: #9aa5b5;
+        font-size: 13px;
+        line-height: 1.5;
+        margin-bottom: 20px;
+    }
+
+    .dashboard-page .manual-form-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+    .dashboard-page .form-field {
+        display: flex;
+        flex-direction: column;
+    }
+    .dashboard-page .form-field label {
+        font-size: 11px;
+        color: #ff6600;
+        font-weight: bold;
+        margin-bottom: 4px;
+        text-transform: uppercase;
+    }
+    .dashboard-page .form-field input {
+        background: #0d0f12;
+        border: 1px solid #283141;
+        padding: 8px;
+        border-radius: 6px;
+        color: white;
+        font-size: 13px;
+    }
+    .dashboard-page .form-field input:focus {
+        outline: none;
+        border-color: #ff6600;
+    }
+
+    .dashboard-page .tab-bar {
+        display: flex;
+        gap: 10px;
+        border-bottom: 1px solid #283141;
+        margin-bottom: 15px;
+    }
+    .dashboard-page .tab-btn {
+        background: transparent;
+        border: none;
+        color: #9aa5b5;
+        padding: 8px 12px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        border-bottom: 2px solid transparent;
+    }
+    .dashboard-page .tab-btn.active {
+        color: #ff6600;
+        border-bottom-color: #ff6600;
+    }
+
+    .dashboard-page .upload-btn-wrapper {
+        position: relative;
+        overflow: hidden;
+        display: inline-block;
+        width: 100%;
+    }
+    .dashboard-page .btn {
+        border: 2px dashed #ff6600;
+        color: #ffffff;
+        background-color: rgba(255, 102, 0, 0.05);
+        padding: 25px;
+        border-radius: 8px;
+        font-weight: bold;
+        font-size: 15px;
+        cursor: pointer;
+        width: 100%;
+        text-align: center;
+        transition: all 0.2s ease-in-out;
+    }
+    .dashboard-page .upload-btn-wrapper:hover .btn {
+        background-color: rgba(255, 102, 0, 0.15);
+        border-style: solid;
+    }
+    .dashboard-page .upload-btn-wrapper input[type=file] {
+        font-size: 100px;
+        position: absolute;
+        left: 0;
+        top: 0;
+        opacity: 0;
+        cursor: pointer;
+    }
+
+    .dashboard-page .action-btn {
+        background: #ff6600;
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        border-radius: 6px;
+        font-weight: bold;
+        cursor: pointer;
+        font-size: 13px;
+        width: 100%;
+        transition: background 0.2s;
+    }
+    .dashboard-page .action-btn:hover {
+        background: #e65c00;
+    }
+
+    .dashboard-page .status-msg {
+        margin-top: 15px;
+        font-size: 13px;
+        font-weight: 600;
+        text-align: center;
+    }
+
+    .dashboard-page .delete-btn {
+        background: transparent;
+        border: 1px solid #ff3333;
+        color: #ff3333;
+        padding: 3px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+    .dashboard-page .delete-btn:hover {
+        background: #ff3333;
+        color: #ffffff;
+    }
+</style>
+
+<div class="dashboard-page">
+    <div class="container">
+        <!-- Dashboard Branding Header -->
+        <div class="header">
+            <h1>COURT<span>VISION</span></h1>
+            <div class="header-controls">
+                <div id="coach-profile">Active Sandbox: <%= user.email %></div>
+                <button class="logout-btn" id="logout-trigger-btn">Log Out</button>
+            </div>
+        </div>
+
+        <!-- Upper Control Dashboard Row Grid Split -->
+        <div class="ingestion-grid">
+            <!-- Left Card: Dynamic Data Entry Panel -->
+            <div class="card" style="min-height: 275px;">
+                <div class="tab-bar">
+                    <button class="tab-btn active" id="tab-csv-btn">📁 Upload CSV File</button>
+                    <button class="tab-btn" id="tab-manual-btn">✍️ Manual Entry Form</button>
+                </div>
+
+                <!-- CSV Upload Wrapper Block -->
+                <div id="wrapper-csv-ingest">
+                    <p>Select and upload a raw single-game box score CSV data file to trigger immediate real-time trend pipeline updates.</p>
+                    <div class="upload-btn-wrapper">
+                        <button class="btn">+ Drag &amp; Drop or Click to Select Box Score CSV data file</button>
+                        <input type="file" id="csv-file-picker" accept=".csv" />
+                    </div>
+                </div>
+
+                <!-- Manual Individual Entry Form Block -->
+                <div id="wrapper-manual-ingest" style="display: none;">
+                    <form id="manual-stats-form">
+                        <div class="manual-form-grid">
+                            <div class="form-field" style="grid-column: span 3;">
+                                <label>Player Name</label>
+                                <input type="text" id="m-name" placeholder="e.g. Marcus Earhart" required>
+                            </div>
+                            <div class="form-field">
+                                <label>MIN (MP)</label>
+                                <input type="number" id="m-min" value="0" min="0" required>
+                            </div>
+                            <div class="form-field">
+                                <label>PTS (Points)</label>
+                                <input type="number" id="m-pts" value="0" min="0" required>
+                            </div>
+                            <div class="form-field">
+                                <label>AST (Assists)</label>
+                                <input type="number" id="m-ast" value="0" min="0" required>
+                            </div>
+                            <div class="form-field">
+                                <label>REB (Rebounds)</label>
+                                <input type="number" id="m-reb" value="0" min="0" required>
+                            </div>
+                            <div class="form-field">
+                                <label>STL (Steals)</label>
+                                <input type="number" id="m-stl" value="0" min="0" required>
+                            </div>
+                            <div class="form-field">
+                                <label>BLK (Blocks)</label>
+                                <input type="number" id="m-blk" value="0" min="0" required>
+                            </div>
+                            <div class="form-field">
+                                <label>TO (Turnovers)</label>
+                                <input type="number" id="m-to" value="0" min="0" required>
+                            </div>
+                            <div class="form-field">
+                                <label>FGM</label>
+                                <input type="number" id="m-fgm" value="0" min="0" required>
+                            </div>
+                            <div class="form-field">
+                                <label>FGA</label>
+                                <input type="number" id="m-fga" value="0" min="0" required>
+                            </div>
+                            <div class="form-field" style="grid-column: span 3;">
+                                <label>3PM (Three Pointers)</label>
+                                <input type="number" id="m-tpm" value="0" min="0" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="action-btn">Submit Single Player Entry</button>
+                    </form>
+                </div>
+
+                <div id="upload-status" class="status-msg"></div>
+            </div>
+
+            <!-- Right Card: Full Control Transparency Management Panel -->
+            <div class="card" style="display: flex; flex-direction: column;">
+                <h3>Manage Uploaded Game Logs</h3>
+                <p>Full tracking pipeline auditing. Review existing database records sequentially and permanently delete erroneous games if needed.</p>
+
+                <div style="flex-grow: 1; overflow-y: auto; max-height: 160px; border: 1px solid #283141; border-radius: 6px; background: #0d0f12; padding: 5px;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
+                        <thead>
+                            <tr style="color: #ff6600; border-bottom: 1px solid #283141;">
+                                <th style="padding: 6px;">File/Data Source</th>
+                                <th style="padding: 6px; text-align: right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="game-management-body">
+                            <tr>
+                                <td colspan="2" style="padding: 15px; text-align: center; color: #5f7597; font-style: italic;">No games logged in database.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Real-Time Analytics & Decision Support Layer -->
+        <div class="card" style="margin-bottom: 30px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0;">Two-Way Roster Analytics &amp; Player Momentum</h3>
+                <button class="btn" id="refresh-data-btn" style="padding: 6px 14px; font-size: 12px; width: auto; border-style: solid;">🔄 Recalculate Trends</button>
+            </div>
+            <p>Computed dynamic metric tracking overall production, resource efficiency, and defensive impact. The <strong>Momentum Score</strong> isolates rolling point trajectories against season benchmarks.</p>
+
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid #ff6600; color: #ff6600;">
+                            <th style="padding: 12px 4px;">Player Name</th>
+                            <th style="padding: 12px 4px; text-align: center;">GP</th>
+                            <th style="padding: 12px 4px; text-align: center;">MPG</th>
+                            <th style="padding: 12px 4px; text-align: center;">PPG</th>
+                            <th style="padding: 12px 4px; text-align: center;">APG</th>
+                            <th style="padding: 12px 4px; text-align: center;">RPG</th>
+                            <th style="padding: 12px 4px; text-align: center;">SPG</th>
+                            <th style="padding: 12px 4px; text-align: center;">BPG</th>
+                            <th style="padding: 12px 4px; text-align: center;">TPG</th>
+                            <th style="padding: 12px 4px; text-align: center;">eFG%</th>
+                            <th style="padding: 12px 4px; text-align: right;">Momentum Score</th>
+                        </tr>
+                    </thead>
+                    <tbody id="roster-trends-body">
+                        <tr>
+                            <td colspan="11" style="padding: 20px; text-align: center; color: #9aa5b5; font-style: italic;">
+                                No season data aggregated yet. Upload a box score CSV above to populate analytics.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Automated Coaching Assistant Layer -->
+        <div class="card" id="assistant-card" style="border-left: 4px solid #ff6600; display: none;">
+            <h3 style="color: #ff6600; margin-bottom: 10px;">💡 CourtVision Tactical Insights</h3>
+            <div id="assistant-recommendation" style="color: #ffffff; font-size: 14px; font-weight: 500; margin: 0; line-height: 1.6;"></div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script>
+    // Read by public/js/dashboard.js - this route requires login (see
+    // controllers/pages/index.js), so `user` is always the real signed-in
+    // account, not client-controlled input.
+    window.CURRENT_USER_EMAIL = <%- JSON.stringify(user.email) %>;
+</script>
+<script type="module" src="/js/dashboard.js"></script>
+
+<%- include("../partials/js.ejs") %>
+</body>
+</html>

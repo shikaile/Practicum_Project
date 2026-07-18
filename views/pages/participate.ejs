@@ -1,0 +1,86 @@
+<%- include("../partials/header.ejs") %>
+
+<div class="contact-page">
+  <div class="contact-card">
+    <h1>Team</h1>
+
+    <% if (typeof user !== 'undefined' && user) { %>
+      <button type="button" id="add-team-btn" class="team-btn">Add Team</button>
+
+      <form id="add-team-form" class="team-form" hidden>
+        <div class="form-group">
+          <label for="team-name">Team Name</label>
+          <input type="text" id="team-name" name="name" class="feedback-input" maxlength="100" required />
+        </div>
+
+        <div class="form-group">
+          <label for="team-season">Season</label>
+          <input type="number" id="team-season" name="season" class="feedback-input" placeholder="YYYY" min="1900" max="2100" step="1" required />
+        </div>
+
+        <div class="form-group">
+          <label for="team-sport">Sport</label>
+          <select id="team-sport" name="sport" class="feedback-input" required>
+            <option value="" disabled selected>Select a sport</option>
+            <option value="Basketball">Basketball</option>
+            <option value="Football" disabled>Football (coming soon)</option>
+            <option value="Baseball" disabled>Baseball (coming soon)</option>
+            <option value="Soccer" disabled>Soccer (coming soon)</option>
+            <option value="Volleyball" disabled>Volleyball (coming soon)</option>
+          </select>
+        </div>
+
+        <p class="team-form-error" id="team-form-error" hidden></p>
+
+        <button type="submit" class="contact-submit">Save Team</button>
+      </form>
+
+      <div class="team-list-box">
+        <h2>My Teams</h2>
+        <ul id="my-teams-list" class="team-list">
+          <li class="team-list-empty">Loading...</li>
+        </ul>
+
+        <div class="team-select-row">
+          <div class="form-group">
+            <label for="team-select">Team</label>
+            <select id="team-select" class="feedback-input">
+              <option value="" disabled selected>Select a team</option>
+            </select>
+          </div>
+
+          <div class="form-group" id="season-select-group" hidden>
+            <label for="season-select">Season</label>
+            <select id="season-select" class="feedback-input">
+              <option value="" disabled selected>Select a season</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="roster-box" id="roster-box" hidden>
+          <h3>Roster</h3>
+          <ul id="roster-list" class="team-list"></ul>
+
+          <button type="button" id="update-roster-btn" class="team-btn">Update</button>
+
+          <form id="add-athlete-form" class="team-form" hidden>
+            <div class="form-group">
+              <label for="athlete-name">Athlete</label>
+              <input type="text" id="athlete-name" name="name" class="feedback-input" maxlength="100" required />
+            </div>
+
+            <p class="team-form-error" id="athlete-form-error" hidden></p>
+
+            <button type="submit" class="contact-submit">Add Athlete</button>
+          </form>
+        </div>
+      </div>
+    <% } else { %>
+      <p class="contact-subhead">Log in to create and manage your teams.</p>
+    <% } %>
+  </div>
+</div>
+
+<%- include("../partials/js.ejs") %>
+</body>
+</html>

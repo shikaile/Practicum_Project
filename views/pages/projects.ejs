@@ -1,0 +1,37 @@
+<%- include("../partials/header.ejs") %>
+
+<div class="contact-page">
+  <div class="contact-card game-card">
+    <h1>Game</h1>
+
+    <% if (typeof user !== 'undefined' && user) { %>
+      <div class="matchup">
+        <div class="matchup-side">
+          <button type="button" class="team-btn game-add-team-btn">Add Team</button>
+          <ul class="team-list game-team-picker" hidden></ul>
+          <div class="game-roster" hidden>
+            <h3 class="game-roster-title"></h3>
+            <ul class="team-list game-roster-list"></ul>
+          </div>
+        </div>
+
+        <div class="matchup-vs">VS</div>
+
+        <div class="matchup-side">
+          <button type="button" class="team-btn game-add-team-btn">Add Team</button>
+          <ul class="team-list game-team-picker" hidden></ul>
+          <div class="game-roster" hidden>
+            <h3 class="game-roster-title"></h3>
+            <ul class="team-list game-roster-list"></ul>
+          </div>
+        </div>
+      </div>
+    <% } else { %>
+      <p class="contact-subhead">Log in to set up a game.</p>
+    <% } %>
+  </div>
+</div>
+
+<%- include("../partials/js.ejs") %>
+</body>
+</html>

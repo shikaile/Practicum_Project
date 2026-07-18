@@ -1,0 +1,42 @@
+<%- include("partials/header.ejs") %>
+
+<section class="sample-content">
+
+    <% if (error) { %>
+        <p class="archive-error"><%= error %></p>
+    <% } else if (!images || images.length === 0) { %>
+        <p class="archive-empty">No photos have been uploaded yet.</p>
+    <% } else { %>
+        <div class="archive-grid">
+            <% images.forEach(function (image) { %>
+                <a href="<%= image.fullUrl %>" data-fancybox="archive-gallery" data-caption="<%= image.filename %>" class="archive-image-link">
+                    <img src="<%= image.url %>" alt="<%= image.filename %>" loading="lazy" class="archive-image" />
+                </a>
+            <% }) %>
+        </div>
+    <% } %>
+</section>
+
+<div id="welcome-modal" class="modal-overlay">
+  <div class="modal-box">
+    <button type="button" class="modal-close" data-modal-close aria-label="Close">&times;</button>
+    <h2>Welcome to DS_Practicum</h2>
+    <p>DS_Practicum is a simple collection that seeks to expand its media archive. Consider exploring, participating, and subscribing to periodic updates.</p>
+
+    <div class="modal-subscribe modal-subscribe-only">
+      <p class="modal-subscribe-label">Recieve Periodic Updates</p>
+
+      <form id="modal-subscribe-form" action="/subscribe" method="POST" class="subscribe-form">
+        <input name="email" type="email" placeholder="you@example.com" required />
+        <button type="submit" class="modal-btn-tertiary">Subscribe</button>
+      </form>
+
+      <p class="subscribe-success" data-modal-subscribe-success hidden>Thanks! We'll keep you posted.</p>
+      <p class="subscribe-error" data-modal-subscribe-error hidden></p>
+    </div>
+  </div>
+</div>
+
+<%- include("partials/js.ejs") %>
+</body>
+</html>

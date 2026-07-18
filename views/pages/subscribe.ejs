@@ -1,0 +1,20 @@
+<%- include("../partials/header.ejs") %>
+
+<h1>Stay Updated</h1>
+
+<% if (submitted) { %>
+  <p class="subscribe-success">Thanks! We'll keep you posted.</p>
+<% } else { %>
+  <p>Enter your email to hear about new additions to the project.</p>
+  <% if (typeof error !== 'undefined' && error) { %>
+    <p class="subscribe-error"><%= error %></p>
+  <% } %>
+  <form action="/subscribe" method="POST" class="subscribe-form">
+    <input name="email" type="email" placeholder="you@example.com" required />
+    <button type="submit">Subscribe</button>
+  </form>
+<% } %>
+
+<%- include("../partials/js.ejs") %>
+</body>
+</html>

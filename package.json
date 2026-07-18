@@ -1,8 +1,36 @@
 {
+  "name": "ds_practicum",
+  "version": "1.0.0",
+  "description": "general purpose web application",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "test": "jest",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shikaile/Practicum_Project.git"
+  },
+  "keywords": [
+    "Detroit"
+  ],
+  "author": "史开乐",
+  "license": "UNLICENSED",
+  "bugs": {
+    "url": "https://github.com/shikaile/Practicum_Project"
+  },
+  "homepage": "https://github.com/shikaile/Practicum_Project",
+  "devDependencies": {
+    "jest": "^29.3.1",
+    "nodemon": "^3.1.10"
+  },
   "dependencies": {
-    "cors": "^2.8.6",
-    "dotenv": "^17.4.2",
-    "express": "^5.2.1",
-    "firebase": "^12.15.0"
+    "dotenv": "^16.0.3",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "firebase": "^12.16.0"
   }
 }
