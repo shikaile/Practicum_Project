@@ -1,4 +1,5 @@
 // app + server
+require('dotenv').config();
 const express = require('express');
 const routes = require('./controllers');
 const path = require('path');
