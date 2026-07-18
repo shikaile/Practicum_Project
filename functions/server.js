@@ -68,9 +68,16 @@ app.use((err, req, res, next) => {
   res.status(500).render('pages/error', { error: err });
 });
 
-app.listen(PORT, ()=> {
-    console.log(`API server on port ${PORT}`);
-    console.log('Press Ctrl+C to quit.');
-});
+// Only bind a port for local dev (`node server.js` / `npm start`). When this
+// file is required by functions/index.js instead, Cloud Functions handles
+// the HTTP listener itself via functions.https.onRequest(app) - calling
+// .listen() there too would just try (and fail) to bind a port in a
+// serverless container.
+if (require.main === module) {
+  app.listen(PORT, ()=> {
+      console.log(`API server on port ${PORT}`);
+      console.log('Press Ctrl+C to quit.');
+  });
+}
 
 module.exports = app;

@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "public": "public",
+    "public": "functions/public",
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -9,8 +9,20 @@
     "rewrites": [
       {
         "source": "**",
-        "destination": "/index.html"
+        "function": "app"
       }
     ]
-  }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log"
+      ]
+    }
+  ]
 }
