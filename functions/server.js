@@ -50,11 +50,15 @@ const navLinks = [
   { label: 'Dashboard', path: '/dashboard' },
 ];
 
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   res.locals.navLinks = navLinks;
   res.locals.currentPath = req.path;
-  res.locals.user = getSessionFromRequest(req);
-  next();
+  try {
+    res.locals.user = await getSessionFromRequest(req);
+    next();
+  } catch (err) {
+    next(err);
+  }
 });
 
 // Routes

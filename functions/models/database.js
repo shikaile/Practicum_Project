@@ -17,6 +17,7 @@
 
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 const BCRYPT_SALT_ROUNDS = 12;
 
@@ -130,6 +131,13 @@ async function ensureSchema() {
           fgm INTEGER NOT NULL DEFAULT 0,
           fga INTEGER NOT NULL DEFAULT 0,
           tpm INTEGER NOT NULL DEFAULT 0
+        );
+
+        CREATE TABLE IF NOT EXISTS sessions (
+          token TEXT PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          email TEXT NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
       `);
     })().catch((err) => {
@@ -391,6 +399,47 @@ async function deleteGame(userId, gameId) {
   return result.rowCount > 0;
 }
 
+// Sessions are stored here (rather than in an in-memory Map) because Cloud
+// Functions gives no guarantee that the same container instance handles
+// every request from a given user - a session created in one instance's
+// memory would simply not exist from another instance's point of view.
+// Postgres is the one thing every instance shares.
+async function createSession(user) {
+  await ensureSchema();
+  const pool = await getPool();
+
+  const token = crypto.randomBytes(32).toString('hex');
+  await pool.query(
+    'INSERT INTO sessions (token, user_id, email) VALUES ($1, $2, $3)',
+    [token, user.id, user.email]
+  );
+
+  return token;
+}
+
+async function getSession(token) {
+  if (!token) return null;
+
+  await ensureSchema();
+  const pool = await getPool();
+
+  const result = await pool.query(
+    'SELECT user_id AS id, email FROM sessions WHERE token = $1',
+    [token]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function destroySession(token) {
+  if (!token) return;
+
+  await ensureSchema();
+  const pool = await getPool();
+
+  await pool.query('DELETE FROM sessions WHERE token = $1', [token]);
+}
+
 module.exports = {
   addSubscriber,
   getAllSubscribers,
@@ -404,5 +453,8 @@ module.exports = {
   createGameWithBoxScores,
   getGamesForUser,
   getBoxScoresForUser,
+  createSession,
+  getSession,
+  destroySession,
   deleteGame,
 };

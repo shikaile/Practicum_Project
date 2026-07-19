@@ -1,29 +1,27 @@
-// Minimal in-memory session store for logged-in users.
-//
-// No new dependency (e.g. express-session) is pulled in for this - a random
-// token mapped to a user in memory is enough for this app's needs, and
-// matches the existing in-memory rate limiter in controllers/pages/index.js.
-// Sessions reset on server restart, which is an accepted tradeoff here.
+// Session cookie handling. The actual session storage lives in Postgres
+// (see models/database.js) rather than in-process memory - on Cloud
+// Functions, different requests can be handled by different container
+// instances, so an in-memory session store would make users appear logged
+// out as soon as a different instance served their next request.
 
-const crypto = require('crypto');
+const {
+  createSession: createSessionRow,
+  getSession: getSessionRow,
+  destroySession: destroySessionRow,
+} = require('./database');
 
 const SESSION_COOKIE_NAME = 'session_id';
-const sessionsById = new Map();
 
-function createSession(user) {
-  const token = crypto.randomBytes(32).toString('hex');
-  sessionsById.set(token, { id: user.id, email: user.email });
-  return token;
+async function createSession(user) {
+  return createSessionRow(user);
 }
 
-function getSession(token) {
-  if (!token) return null;
-  return sessionsById.get(token) || null;
+async function getSession(token) {
+  return getSessionRow(token);
 }
 
-function destroySession(token) {
-  if (!token) return;
-  sessionsById.delete(token);
+async function destroySession(token) {
+  return destroySessionRow(token);
 }
 
 // Express doesn't parse the `Cookie` header without the `cookie-parser`
@@ -50,7 +48,7 @@ function getSessionTokenFromRequest(req) {
   return cookies[SESSION_COOKIE_NAME] || null;
 }
 
-function getSessionFromRequest(req) {
+async function getSessionFromRequest(req) {
   return getSession(getSessionTokenFromRequest(req));
 }
 

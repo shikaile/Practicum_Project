@@ -110,8 +110,8 @@ router.post('/subscribe', async (req,res) =>{
     }
 });
 
-router.get('/signup', (req, res) => {
-    if (getSessionFromRequest(req)) return res.redirect('/');
+router.get('/signup', async (req, res) => {
+    if (await getSessionFromRequest(req)) return res.redirect('/');
     res.render('pages/signup', { error: null });
 });
 
@@ -142,7 +142,7 @@ router.post('/signup', async (req, res) => {
             return res.status(400).render('pages/signup', { error: 'An account with that email already exists.' });
         }
 
-        const token = createSession(result.user);
+        const token = await createSession(result.user);
         setSessionCookie(res, token);
         res.redirect('/');
     } catch (err) {
@@ -151,8 +151,8 @@ router.post('/signup', async (req, res) => {
     }
 });
 
-router.get('/login', (req, res) => {
-    if (getSessionFromRequest(req)) return res.redirect('/');
+router.get('/login', async (req, res) => {
+    if (await getSessionFromRequest(req)) return res.redirect('/');
     res.render('pages/login', { error: null });
 });
 
@@ -177,7 +177,7 @@ router.post('/login', async (req, res) => {
             return res.status(401).render('pages/login', { error: 'Invalid email or password.' });
         }
 
-        const token = createSession(user);
+        const token = await createSession(user);
         setSessionCookie(res, token);
         res.redirect('/');
     } catch (err) {
@@ -186,8 +186,8 @@ router.post('/login', async (req, res) => {
     }
 });
 
-router.post('/logout', (req, res) => {
-    destroySession(getSessionTokenFromRequest(req));
+router.post('/logout', async (req, res) => {
+    await destroySession(getSessionTokenFromRequest(req));
     res.clearCookie(SESSION_COOKIE_NAME);
     res.redirect('/');
 });
