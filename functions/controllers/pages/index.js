@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { addSubscriber, createUser, verifyUser } = require('../../models/firebase');
+const { addSubscriber, createUser, verifyUser } = require('../../models/database');
 const {
     SESSION_COOKIE_NAME,
     createSession,

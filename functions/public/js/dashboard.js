@@ -1,34 +1,9 @@
 // CourtVision analytics dashboard - ported from `main`'s public/dashboard.html.
-// Firestore access is identical to main (same project, same "teams/sandbox_*"
-// data shape); the only change is where the coach identity comes from - main
-// read a hardcoded username out of sessionStorage, this reads the real
-// logged-in user's email injected server-side by views/pages/dashboard.ejs.
-
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
-import {
-    getFirestore, doc, collection, writeBatch, getDocs, query, where, deleteDoc,
-} from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
-
-const firebaseConfig = {
-    apiKey: "AIzaSyAoCTKQ3072pftAkYJgIsGhaR589ljhJ_0",
-    authDomain: "my-solo-project-basket.firebaseapp.com",
-    projectId: "my-solo-project-basket",
-    storageBucket: "my-solo-project-basket.firebasestorage.app",
-    messagingSenderId: "109404963599",
-    appId: "1:109404963599:web:2ab5e946f13cdea8f6347a",
-    measurementId: "G-WVPLEHBQHJ",
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-// Set by views/pages/dashboard.ejs from the server-side session - this route
-// already requires login (see controllers/pages/index.js), so this is always
-// a real signed-in coach's email, not a guessable client-side value.
-const coachName = window.CURRENT_USER_EMAIL || "guest";
-
-// Dynamic multi-tenant router path bounds in Firestore depending on the logged-in coach name
-const teamDocRef = doc(db, "teams", `sandbox_${coachName}`);
+// Originally this read/wrote Firestore directly from the browser; it now
+// talks to this app's own /api/games endpoints instead (backed by
+// PostgreSQL - see models/database.js), scoped automatically by the
+// logged-in user's session, same as the Team/Game features. The CSV
+// parsing and season-analytics/insights logic below is otherwise unchanged.
 
 // Interactive View Controller Tab Switcher. Wired via addEventListener below
 // rather than inline onclick="" attributes (main used those, but this app's
@@ -76,11 +51,7 @@ document.getElementById("csv-file-picker").addEventListener("change", (event) =>
 // Pipeline parsing with fault-tolerant header variations matching tracking formats
 async function processAndUploadStats(rows, filename) {
     try {
-        const batch = writeBatch(db);
-        const timestampId = `game_${Date.now()}`;
-        const gameDocRef = doc(collection(teamDocRef, "games"), timestampId);
-
-        let uploadedPlayersCount = 0;
+        const players = [];
 
         rows.forEach((row) => {
             const playerKey = Object.keys(row).find(k => k.trim().toLowerCase() === 'player');
@@ -97,8 +68,7 @@ async function processAndUploadStats(rows, filename) {
             const fga = getVal('fga');
             const tpm = getVal('3pm') || getVal('3ptm') || 0;
 
-            batch.set(doc(collection(teamDocRef, "player_box_scores")), {
-                gameId: timestampId,
+            players.push({
                 playerName: playerVal.toString().trim(),
                 minutes: getVal('mp') || getVal('min') || 0,
                 points: getVal('pts') || getVal('points') || 0,
@@ -109,29 +79,30 @@ async function processAndUploadStats(rows, filename) {
                 turnovers: getVal('to') || getVal('tov') || 0,
                 fgm: fgm,
                 fga: fga,
-                tpm: tpm
+                tpm: tpm,
             });
-            uploadedPlayersCount++;
         });
 
-        if (uploadedPlayersCount > 0) {
-            batch.set(gameDocRef, {
-                gameId: timestampId,
-                sourceFile: filename,
-                dateUploaded: new Date()
-            });
-
-            await batch.commit();
-            document.getElementById("upload-status").innerHTML =
-                `<span style="color: #00ff66;">Engine Success: Parsed and stored records for ${uploadedPlayersCount} players.</span>`;
-
-            loadSeasonAnalytics();
-        } else {
+        if (players.length === 0) {
             document.getElementById("upload-status").innerHTML =
                 `<span style="color: #ffcc00;">Warning: Found 0 players. Verify CSV headers.</span>`;
+            return;
         }
+
+        const result = await postGame(filename, players);
+
+        if (!result.ok) {
+            document.getElementById("upload-status").innerHTML =
+                `<span style="color: #ff3333;">Pipeline Ingestion Failure: ${result.error}</span>`;
+            return;
+        }
+
+        document.getElementById("upload-status").innerHTML =
+            `<span style="color: #00ff66;">Engine Success: Parsed and stored records for ${players.length} players.</span>`;
+
+        loadSeasonAnalytics();
     } catch (error) {
-        console.error("Firestore Core Processing Error:", error);
+        console.error("Game upload processing error:", error);
         document.getElementById("upload-status").innerHTML =
             `<span style="color: #ff3333;">Pipeline Ingestion Failure: ${error.message}</span>`;
     }
@@ -144,13 +115,9 @@ async function executeManualUpload(event) {
     document.getElementById("upload-status").innerText = "Injecting custom data profile record...";
 
     try {
-        const batch = writeBatch(db);
-        const timestampId = `game_${Date.now()}`;
         const nameVal = document.getElementById("m-name").value.trim();
-        const gameDocRef = doc(collection(teamDocRef, "games"), timestampId);
 
-        batch.set(doc(collection(teamDocRef, "player_box_scores")), {
-            gameId: timestampId,
+        const players = [{
             playerName: nameVal,
             minutes: Number(document.getElementById("m-min").value) || 0,
             points: Number(document.getElementById("m-pts").value) || 0,
@@ -161,39 +128,51 @@ async function executeManualUpload(event) {
             turnovers: Number(document.getElementById("m-to").value) || 0,
             fgm: Number(document.getElementById("m-fgm").value) || 0,
             fga: Number(document.getElementById("m-fga").value) || 0,
-            tpm: Number(document.getElementById("m-tpm").value) || 0
-        });
+            tpm: Number(document.getElementById("m-tpm").value) || 0,
+        }];
 
-        batch.set(gameDocRef, {
-            gameId: timestampId,
-            sourceFile: `Manual: ${nameVal}`,
-            dateUploaded: new Date()
-        });
+        const result = await postGame(`Manual: ${nameVal}`, players);
 
-        await batch.commit();
+        if (!result.ok) {
+            document.getElementById("upload-status").innerHTML = `<span style="color: #ff3333;">${result.error}</span>`;
+            return;
+        }
+
         document.getElementById("upload-status").innerHTML = `<span style="color: #00ff66;">Manual Entry Captured Successfully!</span>`;
         document.getElementById("manual-stats-form").reset();
         loadSeasonAnalytics();
 
     } catch (error) {
         console.error(error);
-        document.getElementById("upload-status").innerHTML = `<span style="color: #ff3333;"> capturing failed.</span>`;
+        document.getElementById("upload-status").innerHTML = `<span style="color: #ff3333;">Entry capturing failed.</span>`;
     }
 }
 
 document.getElementById("manual-stats-form").addEventListener("submit", executeManualUpload);
+
+async function postGame(sourceFile, players) {
+    const response = await fetch('/api/games', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceFile, players }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+        return { ok: false, error: data.error || 'Something went wrong.' };
+    }
+    return { ok: true, data };
+}
 
 // Dynamic Game Removal Engine
 async function deleteGameRecord(gameId, displayTitle) {
     if (!confirm(`Are you absolutely sure you want to delete data logs for [ ${displayTitle} ]?`)) return;
 
     try {
-        await deleteDoc(doc(teamDocRef, "games", gameId));
-
-        const querySnapshot = await getDocs(query(collection(teamDocRef, "player_box_scores"), where("gameId", "==", gameId)));
-        const deleteBatch = writeBatch(db);
-        querySnapshot.forEach((docSnap) => deleteBatch.delete(docSnap.ref));
-        await deleteBatch.commit();
+        const response = await fetch(`/api/games/${gameId}`, { method: 'DELETE' });
+        if (!response.ok && response.status !== 404) {
+            throw new Error(`Delete failed with status ${response.status}`);
+        }
 
         alert("Game statistics completely scrubbed!");
         loadSeasonAnalytics();
@@ -213,37 +192,36 @@ document.getElementById("game-management-body").addEventListener("click", (event
 // Aggregation and advanced calculation framework loop
 async function loadSeasonAnalytics() {
     try {
+        const [gamesResponse, boxScoresResponse] = await Promise.all([
+            fetch('/api/games'),
+            fetch('/api/games/box-scores'),
+        ]);
+        const { games } = await gamesResponse.json();
+        const { boxScores } = await boxScoresResponse.json();
+
         // Sync Audit Panel
-        const gamesSnapshot = await getDocs(collection(teamDocRef, "games"));
         const mgmtBody = document.getElementById("game-management-body");
         mgmtBody.innerHTML = "";
-        const chronologicalGames = [];
 
-        gamesSnapshot.forEach((gSnap) => {
-            const gData = gSnap.data();
-            chronologicalGames.push(gData);
+        games.forEach((game) => {
             mgmtBody.innerHTML += `
                 <tr style="border-bottom: 1px solid #1a222d;">
-                    <td style="padding: 8px 6px; color: #ffffff; font-weight: 500;">${gData.sourceFile}</td>
+                    <td style="padding: 8px 6px; color: #ffffff; font-weight: 500;">${game.sourceFile}</td>
                     <td style="padding: 8px 6px; text-align: right;">
-                        <button class="delete-btn" data-game-id="${gData.gameId}" data-source-file="${gData.sourceFile}">🗑️ Remove</button>
+                        <button class="delete-btn" data-game-id="${game.id}" data-source-file="${game.sourceFile}">🗑️ Remove</button>
                     </td>
                 </tr>
             `;
         });
 
-        if (chronologicalGames.length === 0) {
+        if (games.length === 0) {
             mgmtBody.innerHTML = `<tr><td colspan="2" style="padding: 15px; text-align: center; color: #5f7597; font-style: italic;">No games logged in database.</td></tr>`;
         }
 
-        chronologicalGames.sort((a, b) => a.gameId.localeCompare(b.gameId));
-
         // Process Box Scores
-        const querySnapshot = await getDocs(collection(teamDocRef, "player_box_scores"));
         const playerMap = {};
 
-        querySnapshot.forEach((docSnap) => {
-            const data = docSnap.data();
+        boxScores.forEach((data) => {
             const name = data.playerName;
 
             if (!playerMap[name]) {
@@ -251,18 +229,18 @@ async function loadSeasonAnalytics() {
             }
 
             playerMap[name].games += 1;
-            playerMap[name].min += data.minutes || 0;
-            playerMap[name].pts += data.points || 0;
-            playerMap[name].ast += data.assists || 0;
-            playerMap[name].reb += data.rebounds || 0;
-            playerMap[name].stl += data.steals || 0;
-            playerMap[name].blk += data.blocks || 0;
-            playerMap[name].to += data.turnovers || 0;
-            playerMap[name].fgm += data.fgm || 0;
-            playerMap[name].fga += data.fga || 0;
-            playerMap[name].tpm += data.tpm || 0;
+            playerMap[name].min += Number(data.minutes) || 0;
+            playerMap[name].pts += Number(data.points) || 0;
+            playerMap[name].ast += Number(data.assists) || 0;
+            playerMap[name].reb += Number(data.rebounds) || 0;
+            playerMap[name].stl += Number(data.steals) || 0;
+            playerMap[name].blk += Number(data.blocks) || 0;
+            playerMap[name].to += Number(data.turnovers) || 0;
+            playerMap[name].fgm += Number(data.fgm) || 0;
+            playerMap[name].fga += Number(data.fga) || 0;
+            playerMap[name].tpm += Number(data.tpm) || 0;
 
-            playerMap[name].gamePointsArray.push({ gameId: data.gameId, pts: data.points || 0 });
+            playerMap[name].gamePointsArray.push({ gameId: data.gameId, pts: Number(data.points) || 0 });
         });
 
         const tbody = document.getElementById("roster-trends-body");
@@ -287,7 +265,7 @@ async function loadSeasonAnalytics() {
 
             let momentumScore = 0;
             if (player.gamePointsArray.length >= 2) {
-                player.gamePointsArray.sort((a, b) => a.gameId.localeCompare(b.gameId));
+                player.gamePointsArray.sort((a, b) => a.gameId - b.gameId);
                 const recentAvg = (Number(player.gamePointsArray[player.gamePointsArray.length - 1].pts) + Number(player.gamePointsArray[player.gamePointsArray.length - 2].pts)) / 2;
                 momentumScore = parseFloat((recentAvg - parseFloat(avgPts)).toFixed(1));
             }
@@ -324,7 +302,7 @@ async function loadSeasonAnalytics() {
         playersArray.forEach((p) => {
             let mScore = 0;
             if (p.gamePointsArray.length >= 2) {
-                p.gamePointsArray.sort((a, b) => a.gameId.localeCompare(b.gameId));
+                p.gamePointsArray.sort((a, b) => a.gameId - b.gameId);
                 const recentAvg = (Number(p.gamePointsArray[p.gamePointsArray.length - 1].pts) + Number(p.gamePointsArray[p.gamePointsArray.length - 2].pts)) / 2;
                 mScore = recentAvg - (p.pts / p.games);
             }
@@ -363,9 +341,8 @@ async function loadSeasonAnalytics() {
 document.getElementById("refresh-data-btn").addEventListener("click", loadSeasonAnalytics);
 window.addEventListener("DOMContentLoaded", loadSeasonAnalytics);
 
-// Logout now goes through this app's real session (POST /logout), rather
-// than main's sessionStorage.clear() - see views/partials/header.ejs for the
-// equivalent control used site-wide.
+// Logout goes through this app's real session (POST /logout) - see
+// views/partials/header.ejs for the equivalent control used site-wide.
 document.getElementById("logout-trigger-btn").addEventListener("click", () => {
     if (confirm("Log out of CourtVision?")) {
         fetch('/logout', { method: 'POST' }).then(() => { window.location.href = '/'; });

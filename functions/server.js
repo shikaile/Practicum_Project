@@ -4,6 +4,7 @@ const express = require('express');
 const routes = require('./controllers');
 const path = require('path');
 const { getSessionFromRequest } = require('./models/sessions');
+const { onRequest } = require('firebase-functions/v2/https');
 const app = express();
 const PORT = process.env.PORT || 8080;
 
@@ -24,8 +25,8 @@ app.use((req, res, next) => {
       "img-src 'self' https://imagedelivery.net https://images.unsplash.com data:",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://code.getmdl.io",
       "font-src 'self' https://fonts.gstatic.com",
-      "script-src 'self' https://cdnjs.cloudflare.com https://code.getmdl.io https://www.gstatic.com",
-      "connect-src 'self' https://firestore.googleapis.com https://www.googleapis.com",
+      "script-src 'self' https://cdnjs.cloudflare.com https://code.getmdl.io",
+      "connect-src 'self'",
     ].join('; ')
   );
   next();
@@ -69,10 +70,10 @@ app.use((err, req, res, next) => {
 });
 
 // Only bind a port for local dev (`node server.js` / `npm start`). When this
-// file is required by functions/index.js instead, Cloud Functions handles
-// the HTTP listener itself via functions.https.onRequest(app) - calling
-// .listen() there too would just try (and fail) to bind a port in a
-// serverless container.
+// file is loaded as the Cloud Functions entry point instead (see
+// functions/package.json's "main"), Cloud Functions handles the HTTP
+// listener itself via onRequest(app) below - calling .listen() there too
+// would just try (and fail) to bind a port in a serverless container.
 if (require.main === module) {
   app.listen(PORT, ()=> {
       console.log(`API server on port ${PORT}`);
@@ -80,4 +81,16 @@ if (require.main === module) {
   });
 }
 
-module.exports = app;
+// Cloud Functions entry point. Firebase Hosting can't run Node/Express
+// itself - it only serves static files - so every non-static request is
+// rewritten (see firebase.json) to this function, which hands the request
+// to the Express app above.
+//
+// DB_PASSWORD is declared as a secret (set via `firebase functions:secrets:set
+// DB_PASSWORD`) rather than a plain env var - Secret Manager keeps it out of
+// the deployment config/console/logs, and only injects it into this
+// function's environment at runtime. DB_USER isn't sensitive the same way
+// (just an identifier, not a credential), so it's set as a regular env var
+// instead (see functions/.env.example for local dev and the deploy notes
+// there for production).
+exports.app = onRequest({ secrets: ['DB_PASSWORD'] }, app);

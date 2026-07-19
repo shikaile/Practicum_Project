@@ -1,9 +1,10 @@
 <%- include("../partials/header.ejs") %>
 
 <!-- CourtVision analytics dashboard, ported from `main`'s public/dashboard.html.
-     Styling/markup/Firestore logic match main; only the coach identity and
-     logout control were adapted to this app's real login (see
-     public/js/dashboard.js for details). -->
+     Styling/markup match main; the data layer was migrated from client-side
+     Firestore to this app's own /api/games endpoints (backed by PostgreSQL),
+     scoped by the logged-in user's session (see public/js/dashboard.js and
+     controllers/api/games.js for details). -->
 <style>
     .dashboard-page {
         font-family: 'Segoe UI', Arial, sans-serif;
@@ -380,12 +381,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-<script>
-    // Read by public/js/dashboard.js - this route requires login (see
-    // controllers/pages/index.js), so `user` is always the real signed-in
-    // account, not client-controlled input.
-    window.CURRENT_USER_EMAIL = <%- JSON.stringify(user.email) %>;
-</script>
 <script type="module" src="/js/dashboard.js"></script>
 
 <%- include("../partials/js.ejs") %>
