@@ -45,7 +45,11 @@ function parseCookieHeader(header) {
 
 function getSessionTokenFromRequest(req) {
   const cookies = parseCookieHeader(req.headers.cookie);
-  return cookies[SESSION_COOKIE_NAME] || null;
+  const token = cookies[SESSION_COOKIE_NAME] || null;
+  // TEMP DIAGNOSTIC - remove once the production session lookup is confirmed
+  // working.
+  console.log('[session-debug] raw Cookie header:', JSON.stringify(req.headers.cookie), '-> extracted token:', token);
+  return token;
 }
 
 async function getSessionFromRequest(req) {

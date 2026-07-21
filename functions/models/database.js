@@ -26,6 +26,14 @@ let poolPromise = null;
 function getPool() {
   if (poolPromise) return poolPromise;
 
+  // TEMP DIAGNOSTIC - remove once production DB connectivity is confirmed.
+  // Doesn't log DB_PASSWORD, just whether it's present.
+  console.log('[session-debug] getPool() initializing. INSTANCE_CONNECTION_NAME:', process.env.INSTANCE_CONNECTION_NAME || '(unset)',
+    'DB_USER:', process.env.DB_USER || '(unset)',
+    'DB_NAME:', process.env.DB_NAME || '(unset)',
+    'DB_PASSWORD set:', Boolean(process.env.DB_PASSWORD),
+    'DATABASE_URL set:', Boolean(process.env.DATABASE_URL));
+
   if (process.env.INSTANCE_CONNECTION_NAME) {
     poolPromise = (async () => {
       const { Connector } = require('@google-cloud/cloud-sql-connector');
@@ -47,12 +55,15 @@ function getPool() {
         console.error('Unexpected PostgreSQL pool error:', err.message);
       });
 
+      console.log('[session-debug] connected via Cloud SQL Connector');
       return pool;
     })().catch((err) => {
       poolPromise = null;
+      console.error('[session-debug] Cloud SQL Connector setup FAILED:', err.message);
       throw err;
     });
   } else {
+    console.log('[session-debug] falling back to DATABASE_URL branch');
     const useSSL = process.env.DATABASE_SSL === 'true';
     const pool = new Pool({
       connectionString: process.env.DATABASE_URL,
@@ -418,7 +429,15 @@ async function createSession(user) {
 }
 
 async function getSession(token) {
-  if (!token) return null;
+  // TEMP DIAGNOSTIC - remove once the production session lookup is confirmed
+  // working. Logs the token being looked up (safe to log - it's a random
+  // opaque value, not a password) and how the query connected/what it found.
+  console.log('[session-debug] getSession called, token:', token, 'via', process.env.INSTANCE_CONNECTION_NAME ? 'cloud-sql-connector' : 'DATABASE_URL');
+
+  if (!token) {
+    console.log('[session-debug] no token, returning null');
+    return null;
+  }
 
   await ensureSchema();
   const pool = await getPool();
@@ -427,6 +446,8 @@ async function getSession(token) {
     'SELECT user_id AS id, email FROM sessions WHERE token = $1',
     [token]
   );
+
+  console.log('[session-debug] query returned', result.rowCount, 'row(s) for token', token);
 
   return result.rows[0] || null;
 }
