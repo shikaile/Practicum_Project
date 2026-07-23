@@ -4,6 +4,37 @@
   <div class="contact-card game-card">
     <h1>Game</h1>
 
+    <div class="game-clock">
+      <div class="game-clock-display" id="game-clock-display">08:00</div>
+      <button type="button" class="team-btn" id="game-clock-toggle">Start</button>
+    </div>
+
+    <div class="quarter-toggles">
+      <button type="button" class="quarter-btn" data-quarter="Q1">Q1</button>
+      <button type="button" class="quarter-btn" data-quarter="Q2">Q2</button>
+      <button type="button" class="quarter-btn" data-quarter="Q3">Q3</button>
+      <button type="button" class="quarter-btn" data-quarter="Q4">Q4</button>
+    </div>
+
+    <p class="stat-status" id="stat-status">Select an athlete below to log stats for them.</p>
+
+    <div class="stat-buttons">
+      <button type="button" class="stat-btn" data-stat="fga"><span class="stat-btn-label">FG Att.</span><span class="stat-btn-count">0</span></button>
+      <button type="button" class="stat-btn" data-stat="fgm"><span class="stat-btn-label">FG Made</span><span class="stat-btn-count">0</span></button>
+      <button type="button" class="stat-btn" data-stat="tpa"><span class="stat-btn-label">3-Point Att</span><span class="stat-btn-count">0</span></button>
+      <button type="button" class="stat-btn" data-stat="tpm"><span class="stat-btn-label">3-Point Made</span><span class="stat-btn-count">0</span></button>
+      <button type="button" class="stat-btn" data-stat="fta"><span class="stat-btn-label">Free Throw Att.</span><span class="stat-btn-count">0</span></button>
+      <button type="button" class="stat-btn" data-stat="ftm"><span class="stat-btn-label">Free Throw Made</span><span class="stat-btn-count">0</span></button>
+      <button type="button" class="stat-btn" data-stat="offRebounds"><span class="stat-btn-label">Off Rebounds</span><span class="stat-btn-count">0</span></button>
+      <button type="button" class="stat-btn" data-stat="defRebounds"><span class="stat-btn-label">Def Rebounds</span><span class="stat-btn-count">0</span></button>
+      <button type="button" class="stat-btn" data-stat="assists"><span class="stat-btn-label">Assists</span><span class="stat-btn-count">0</span></button>
+      <button type="button" class="stat-btn" data-stat="steals"><span class="stat-btn-label">Steals</span><span class="stat-btn-count">0</span></button>
+      <button type="button" class="stat-btn" data-stat="blocks"><span class="stat-btn-label">Blocks</span><span class="stat-btn-count">0</span></button>
+      <button type="button" class="stat-btn" data-stat="turnovers"><span class="stat-btn-label">Turnovers</span><span class="stat-btn-count">0</span></button>
+      <button type="button" class="stat-btn" data-stat="fouls"><span class="stat-btn-label">Fouls</span><span class="stat-btn-count">0</span></button>
+      <button type="button" class="stat-btn stat-btn-derived" id="stat-total-points" disabled><span class="stat-btn-label">Total Points</span><span class="stat-btn-count">0</span></button>
+    </div>
+
     <% if (typeof user !== 'undefined' && user) { %>
       <div class="matchup">
         <div class="matchup-side">

@@ -705,22 +705,22 @@ textarea.feedback-input {
 
 .matchup {
 	display: flex;
-	flex-wrap: wrap;
-	gap: 24px;
-	margin-top: 24px;
+	flex-direction: column;
 	align-items: flex-start;
+	gap: 16px;
+	margin-top: 24px;
 }
 
 .matchup-side {
-	flex: 1;
-	min-width: 220px;
-	text-align: center;
+	width: 100%;
+	max-width: 340px;
+	text-align: left;
 }
 
 .matchup-vs {
-	align-self: center;
-	padding-top: 10px;
-	font-size: 18px;
+	align-self: flex-start;
+	padding-top: 0;
+	font-size: 16px;
 	font-weight: 700;
 	color: var(--cv-text-muted);
 }
@@ -751,4 +751,152 @@ textarea.feedback-input {
 	font-size: 15px;
 	text-align: center;
 	color: var(--cv-text);
+}
+
+/* Game clock */
+.game-clock {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 12px;
+	margin-top: 20px;
+}
+
+.game-clock-display {
+	font-family: 'Playfair Display', 'Roboto', serif;
+	font-size: 48px;
+	font-weight: 700;
+	letter-spacing: 1px;
+	color: var(--cv-text);
+	font-variant-numeric: tabular-nums;
+}
+
+.game-clock .team-btn {
+	margin-top: 0;
+	min-width: 100px;
+}
+
+.game-clock .team-btn.active {
+	background-color: var(--cv-danger);
+}
+
+.game-clock .team-btn.active:hover {
+	background-color: #d92c2c;
+}
+
+/* Quarter toggles */
+.quarter-toggles {
+	display: flex;
+	justify-content: center;
+	gap: 10px;
+	margin-top: 16px;
+}
+
+.quarter-btn {
+	padding: 8px 16px;
+	background-color: transparent;
+	color: var(--cv-text-muted);
+	border: 1px solid var(--cv-border);
+	border-radius: 20px;
+	font-size: 14px;
+	font-weight: 700;
+	cursor: pointer;
+	transition: all 0.15s ease-in-out;
+}
+
+.quarter-btn:hover {
+	border-color: var(--cv-accent);
+	color: var(--cv-text);
+}
+
+.quarter-btn.active {
+	background-color: var(--cv-accent);
+	border-color: var(--cv-accent);
+	color: #fff;
+}
+
+/* Stat-logging buttons */
+.stat-buttons {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 10px;
+	margin-top: 20px;
+	padding-top: 20px;
+	border-top: 1px solid var(--cv-border);
+}
+
+.stat-btn {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 4px;
+	min-width: 84px;
+	padding: 8px 10px;
+	background-color: var(--cv-bg);
+	color: var(--cv-text);
+	border: 1px solid var(--cv-border);
+	border-radius: 6px;
+	font-family: inherit;
+	cursor: pointer;
+	transition: all 0.15s ease-in-out;
+}
+
+.stat-btn:hover {
+	border-color: var(--cv-accent);
+}
+
+.stat-btn:active {
+	background-color: rgba(255, 102, 0, 0.15);
+}
+
+.stat-btn-label {
+	font-size: 12px;
+	font-weight: 600;
+	text-align: center;
+	color: var(--cv-text-muted);
+}
+
+.stat-btn-count {
+	font-size: 20px;
+	font-weight: 700;
+	color: var(--cv-accent);
+}
+
+.stat-btn-derived {
+	cursor: default;
+	border-style: dashed;
+}
+
+.stat-btn-derived:hover {
+	border-color: var(--cv-border);
+}
+
+.stat-status {
+	text-align: center;
+	color: var(--cv-text-muted);
+	font-size: 14px;
+	margin-top: 16px;
+	margin-bottom: 0;
+}
+
+/* Selectable athlete rows in the Game page rosters */
+.game-athlete-option {
+	cursor: pointer;
+	transition: all 0.15s ease-in-out;
+}
+
+.game-athlete-option:hover,
+.game-athlete-option:focus {
+	background-color: rgba(255, 102, 0, 0.12);
+	outline: none;
+}
+
+.game-athlete-option.selected {
+	background-color: var(--cv-accent);
+	border-color: var(--cv-accent);
+}
+
+.game-athlete-option.selected .team-list-item-name {
+	color: #fff;
 }

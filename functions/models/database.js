@@ -26,14 +26,6 @@ let poolPromise = null;
 function getPool() {
   if (poolPromise) return poolPromise;
 
-  // TEMP DIAGNOSTIC - remove once production DB connectivity is confirmed.
-  // Doesn't log DB_PASSWORD, just whether it's present.
-  console.log('[session-debug] getPool() initializing. INSTANCE_CONNECTION_NAME:', process.env.INSTANCE_CONNECTION_NAME || '(unset)',
-    'DB_USER:', process.env.DB_USER || '(unset)',
-    'DB_NAME:', process.env.DB_NAME || '(unset)',
-    'DB_PASSWORD set:', Boolean(process.env.DB_PASSWORD),
-    'DATABASE_URL set:', Boolean(process.env.DATABASE_URL));
-
   if (process.env.INSTANCE_CONNECTION_NAME) {
     poolPromise = (async () => {
       const { Connector } = require('@google-cloud/cloud-sql-connector');
@@ -55,15 +47,12 @@ function getPool() {
         console.error('Unexpected PostgreSQL pool error:', err.message);
       });
 
-      console.log('[session-debug] connected via Cloud SQL Connector');
       return pool;
     })().catch((err) => {
       poolPromise = null;
-      console.error('[session-debug] Cloud SQL Connector setup FAILED:', err.message);
       throw err;
     });
   } else {
-    console.log('[session-debug] falling back to DATABASE_URL branch');
     const useSSL = process.env.DATABASE_SSL === 'true';
     const pool = new Pool({
       connectionString: process.env.DATABASE_URL,
@@ -141,8 +130,24 @@ async function ensureSchema() {
           turnovers INTEGER NOT NULL DEFAULT 0,
           fgm INTEGER NOT NULL DEFAULT 0,
           fga INTEGER NOT NULL DEFAULT 0,
-          tpm INTEGER NOT NULL DEFAULT 0
+          tpm INTEGER NOT NULL DEFAULT 0,
+          tpa INTEGER NOT NULL DEFAULT 0,
+          fta INTEGER NOT NULL DEFAULT 0,
+          ftm INTEGER NOT NULL DEFAULT 0,
+          off_rebounds INTEGER NOT NULL DEFAULT 0,
+          def_rebounds INTEGER NOT NULL DEFAULT 0,
+          fouls INTEGER NOT NULL DEFAULT 0
         );
+
+        -- Older deployments already have player_box_scores without the
+        -- columns above (CREATE TABLE IF NOT EXISTS is a no-op once the
+        -- table exists) - add them explicitly so existing databases catch up.
+        ALTER TABLE player_box_scores ADD COLUMN IF NOT EXISTS tpa INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE player_box_scores ADD COLUMN IF NOT EXISTS fta INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE player_box_scores ADD COLUMN IF NOT EXISTS ftm INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE player_box_scores ADD COLUMN IF NOT EXISTS off_rebounds INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE player_box_scores ADD COLUMN IF NOT EXISTS def_rebounds INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE player_box_scores ADD COLUMN IF NOT EXISTS fouls INTEGER NOT NULL DEFAULT 0;
 
         CREATE TABLE IF NOT EXISTS sessions (
           token TEXT PRIMARY KEY,
@@ -410,6 +415,134 @@ async function deleteGame(userId, gameId) {
   return result.rowCount > 0;
 }
 
+// Maps the stat keys the client sends to actual column names - never
+// interpolate a client-supplied string directly into SQL as a column name.
+const LIVE_STAT_COLUMNS = {
+  fga: 'fga',
+  fgm: 'fgm',
+  tpa: 'tpa',
+  tpm: 'tpm',
+  fta: 'fta',
+  ftm: 'ftm',
+  offRebounds: 'off_rebounds',
+  defRebounds: 'def_rebounds',
+  assists: 'assists',
+  steals: 'steals',
+  blocks: 'blocks',
+  turnovers: 'turnovers',
+  fouls: 'fouls',
+};
+
+// Creates an empty game (no box scores yet) - used by the Game page's live
+// stat-logging flow, which adds box score rows one stat click at a time
+// rather than uploading a complete set upfront like the Dashboard does.
+async function createGame(userId, sourceFile) {
+  await ensureSchema();
+  const pool = await getPool();
+
+  const inserted = await pool.query(
+    `INSERT INTO games (user_id, source_file) VALUES ($1, $2)
+     RETURNING id, source_file AS "sourceFile", uploaded_at AS "uploadedAt"`,
+    [userId, sourceFile]
+  );
+
+  return inserted.rows[0];
+}
+
+function mapBoxScoreRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    gameId: row.game_id,
+    playerName: row.player_name,
+    points: row.points,
+    rebounds: row.rebounds,
+    assists: row.assists,
+    steals: row.steals,
+    blocks: row.blocks,
+    turnovers: row.turnovers,
+    fouls: row.fouls,
+    fga: row.fga,
+    fgm: row.fgm,
+    tpa: row.tpa,
+    tpm: row.tpm,
+    fta: row.fta,
+    ftm: row.ftm,
+    offRebounds: row.off_rebounds,
+    defRebounds: row.def_rebounds,
+  };
+}
+
+// Returns a player's box score for a specific game (owned by the given
+// user), or an all-zero row if they don't have one yet.
+async function getPlayerBoxScore(gameId, userId, playerName) {
+  await ensureSchema();
+  const pool = await getPool();
+
+  const gameCheck = await pool.query('SELECT id FROM games WHERE id = $1 AND user_id = $2', [gameId, userId]);
+  if (gameCheck.rows.length === 0) return null;
+
+  const result = await pool.query(
+    'SELECT * FROM player_box_scores WHERE game_id = $1 AND player_name = $2',
+    [gameId, playerName]
+  );
+
+  if (result.rows.length === 0) {
+    return {
+      id: null, gameId, playerName, points: 0, rebounds: 0, assists: 0, steals: 0, blocks: 0,
+      turnovers: 0, fouls: 0, fga: 0, fgm: 0, tpa: 0, tpm: 0, fta: 0, ftm: 0, offRebounds: 0, defRebounds: 0,
+    };
+  }
+
+  return mapBoxScoreRow(result.rows[0]);
+}
+
+// Increments one stat (see LIVE_STAT_COLUMNS) for a player within a game
+// owned by the given user, creating their box score row if needed. Keeps
+// `points` (2 per FG Made, 3 per 3-Point Made, 1 per Free Throw Made) and
+// `rebounds` (offRebounds + defRebounds) in sync so the existing Dashboard
+// analytics, which read those two columns, keep working unchanged.
+async function incrementPlayerBoxScoreStat(gameId, userId, playerName, statKey) {
+  const column = LIVE_STAT_COLUMNS[statKey];
+  if (!column) throw new Error('Invalid stat key');
+
+  await ensureSchema();
+  const pool = await getPool();
+
+  const gameCheck = await pool.query('SELECT id FROM games WHERE id = $1 AND user_id = $2', [gameId, userId]);
+  if (gameCheck.rows.length === 0) return null;
+
+  const existing = await pool.query(
+    'SELECT id FROM player_box_scores WHERE game_id = $1 AND player_name = $2',
+    [gameId, playerName]
+  );
+
+  let row;
+  if (existing.rows.length > 0) {
+    const updated = await pool.query(
+      `UPDATE player_box_scores SET ${column} = ${column} + 1 WHERE id = $1 RETURNING *`,
+      [existing.rows[0].id]
+    );
+    row = updated.rows[0];
+  } else {
+    const inserted = await pool.query(
+      `INSERT INTO player_box_scores (game_id, player_name, ${column}) VALUES ($1, $2, 1) RETURNING *`,
+      [gameId, playerName]
+    );
+    row = inserted.rows[0];
+  }
+
+  const points = (row.fgm || 0) * 2 + (row.tpm || 0) * 3 + (row.ftm || 0);
+  const rebounds = (row.off_rebounds || 0) + (row.def_rebounds || 0);
+
+  const synced = await pool.query(
+    'UPDATE player_box_scores SET points = $1, rebounds = $2 WHERE id = $3 RETURNING *',
+    [points, rebounds, row.id]
+  );
+
+  return mapBoxScoreRow(synced.rows[0]);
+}
+
 // Sessions are stored here (rather than in an in-memory Map) because Cloud
 // Functions gives no guarantee that the same container instance handles
 // every request from a given user - a session created in one instance's
@@ -429,15 +562,7 @@ async function createSession(user) {
 }
 
 async function getSession(token) {
-  // TEMP DIAGNOSTIC - remove once the production session lookup is confirmed
-  // working. Logs the token being looked up (safe to log - it's a random
-  // opaque value, not a password) and how the query connected/what it found.
-  console.log('[session-debug] getSession called, token:', token, 'via', process.env.INSTANCE_CONNECTION_NAME ? 'cloud-sql-connector' : 'DATABASE_URL');
-
-  if (!token) {
-    console.log('[session-debug] no token, returning null');
-    return null;
-  }
+  if (!token) return null;
 
   await ensureSchema();
   const pool = await getPool();
@@ -446,8 +571,6 @@ async function getSession(token) {
     'SELECT user_id AS id, email FROM sessions WHERE token = $1',
     [token]
   );
-
-  console.log('[session-debug] query returned', result.rowCount, 'row(s) for token', token);
 
   return result.rows[0] || null;
 }
@@ -478,4 +601,7 @@ module.exports = {
   getSession,
   destroySession,
   deleteGame,
+  createGame,
+  getPlayerBoxScore,
+  incrementPlayerBoxScoreStat,
 };

@@ -4,18 +4,28 @@ const {
     getGamesForUser,
     getBoxScoresForUser,
     deleteGame,
+    createGame,
+    getPlayerBoxScore,
+    incrementPlayerBoxScoreStat,
 } = require('../../models/database');
 
 // Backs the CourtVision dashboard (views/pages/dashboard.ejs /
 // public/js/dashboard.js) - previously this data lived in Firestore and was
 // read/written directly from the browser; it's now scoped per logged-in
 // user through this API instead, same as the Team/Game features.
+//
+// The /start and /:gameId/box-score routes below back a second, separate
+// flow: live stat-logging on the Game page (public/js/common.js), where box
+// score rows are built up one stat click at a time against a game created
+// on the fly, rather than uploaded as a complete batch.
 
 const MAX_SOURCE_FILE_LENGTH = 200;
 const MAX_PLAYER_NAME_LENGTH = 100;
 const MAX_PLAYERS_PER_GAME = 100;
 
 const STAT_FIELDS = ['minutes', 'points', 'assists', 'rebounds', 'steals', 'blocks', 'turnovers', 'fgm', 'fga', 'tpm'];
+
+const LIVE_STAT_KEYS = ['fga', 'fgm', 'tpa', 'tpm', 'fta', 'ftm', 'offRebounds', 'defRebounds', 'assists', 'steals', 'blocks', 'turnovers', 'fouls'];
 
 function requireAuth(req, res, next) {
     if (!res.locals.user) {
@@ -88,6 +98,74 @@ router.post('/', requireAuth, async (req, res) => {
     } catch (err) {
         console.error('Failed to create game:', err.message);
         res.status(500).json({ error: 'Something went wrong saving the game.' });
+    }
+});
+
+// Starts an empty game for the Game page's live stat-logging flow (box
+// scores get added one stat click at a time afterward).
+router.post('/start', requireAuth, async (req, res) => {
+    const sourceFile = typeof (req.body && req.body.sourceFile) === 'string' ? req.body.sourceFile.trim() : '';
+
+    if (!sourceFile || sourceFile.length > MAX_SOURCE_FILE_LENGTH) {
+        return res.status(400).json({ error: 'Please provide a source file name.' });
+    }
+
+    try {
+        const game = await createGame(res.locals.user.id, sourceFile);
+        res.status(201).json({ game });
+    } catch (err) {
+        console.error('Failed to start game:', err.message);
+        res.status(500).json({ error: 'Something went wrong starting the game.' });
+    }
+});
+
+router.get('/:gameId/box-score', requireAuth, async (req, res) => {
+    const gameId = Number(req.params.gameId);
+    const playerName = typeof req.query.playerName === 'string' ? req.query.playerName.trim() : '';
+
+    if (!Number.isInteger(gameId)) {
+        return res.status(400).json({ error: 'Invalid game id.' });
+    }
+    if (!playerName || playerName.length > MAX_PLAYER_NAME_LENGTH) {
+        return res.status(400).json({ error: 'Invalid player name.' });
+    }
+
+    try {
+        const boxScore = await getPlayerBoxScore(gameId, res.locals.user.id, playerName);
+        if (!boxScore) {
+            return res.status(404).json({ error: 'Game not found.' });
+        }
+        res.json({ boxScore });
+    } catch (err) {
+        console.error('Failed to load box score:', err.message);
+        res.status(500).json({ error: 'Something went wrong loading the box score.' });
+    }
+});
+
+router.post('/:gameId/box-score', requireAuth, async (req, res) => {
+    const gameId = Number(req.params.gameId);
+    const playerName = typeof (req.body && req.body.playerName) === 'string' ? req.body.playerName.trim() : '';
+    const stat = typeof (req.body && req.body.stat) === 'string' ? req.body.stat.trim() : '';
+
+    if (!Number.isInteger(gameId)) {
+        return res.status(400).json({ error: 'Invalid game id.' });
+    }
+    if (!playerName || playerName.length > MAX_PLAYER_NAME_LENGTH) {
+        return res.status(400).json({ error: 'Invalid player name.' });
+    }
+    if (!LIVE_STAT_KEYS.includes(stat)) {
+        return res.status(400).json({ error: 'Invalid stat.' });
+    }
+
+    try {
+        const boxScore = await incrementPlayerBoxScoreStat(gameId, res.locals.user.id, playerName, stat);
+        if (!boxScore) {
+            return res.status(404).json({ error: 'Game not found.' });
+        }
+        res.json({ boxScore });
+    } catch (err) {
+        console.error('Failed to update box score:', err.message);
+        res.status(500).json({ error: 'Something went wrong updating the box score.' });
     }
 });
 
