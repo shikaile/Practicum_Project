@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CourtVision - Game Analytics Center</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-bg: #0A0A0A;
+            --card-bg: #161a22;
+            --border-color: #283141;
+            --header-divider: #8E4D16;
+            --text-brand-vision: #8E4D16;
+            --text-brand-court: #E5E7EB;
+            --text-muted: #9aa5b5;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #0d0f12;
+            color: #ffffff;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .courtvision-header {
+            background-color: var(--primary-bg);
+            color: var(--text-brand-court);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 30px;
+            border-bottom: 2px solid var(--header-divider);
+        }
+
+        .courtvision-header h1.brand {
+            margin: 0;
+            font-size: 1.8rem;
+            text-transform: uppercase;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .courtvision-header h1.brand span.vision {
+            color: var(--text-brand-vision);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .user-status, .logout-btn {
+            padding: 8px 18px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .user-status {
+            color: var(--text-brand-vision);
+            background-color: rgba(142, 77, 22, 0.1);
+        }
+
+        .logout-btn {
+            background-color: transparent;
+            color: var(--text-brand-vision);
+            border: 1px solid var(--text-brand-vision);
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .logout-btn:hover {
+            background-color: var(--text-brand-vision);
+            color: #ffffff;
+        }
+
+        .app-layout {
+            display: grid;
+            grid-template-columns: 240px 1fr 280px;
+            flex: 1;
+            background-image: linear-gradient(rgba(13, 15, 18, 0.85), rgba(13, 15, 18, 0.95)),
+                url('https://images.unsplash.com/photo-1544698310-74ea9d1c8258?q=80&w=1600&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+
+        .left-sidebar {
+            background-color: rgba(10, 10, 10, 0.9);
+            border-right: 1px solid var(--border-color);
+            padding: 25px 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            backdrop-filter: blur(6px);
+        }
+
+        .nav-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            padding: 12px 15px;
+            border-radius: 6px;
+            font-weight: 600;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            color: #ffffff;
+            background-color: rgba(142, 77, 22, 0.15);
+            border-left: 4px solid var(--text-brand-vision);
+        }
+
+        .main-workspace {
+            padding: 30px;
+            overflow-y: auto;
+        }
+
+        .chart-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .card {
+            background-color: rgba(22, 26, 34, 0.9);
+            border: 1px solid var(--border-color);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            margin-bottom: 25px;
+        }
+
+        .card h3 {
+            margin-top: 0;
+            font-size: 18px;
+            color: #ffffff;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .control-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .split-select {
+            background: #0d0f12;
+            border: 1px solid var(--border-color);
+            padding: 10px 16px;
+            border-radius: 6px;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .table-scroll-container { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+        th { border-bottom: 2px solid var(--text-brand-vision); color: var(--text-brand-vision); padding: 12px 6px; font-weight: 700; }
+        td { padding: 12px 6px; border-bottom: 1px solid var(--border-color); }
+
+        .manual-badge {
+            background: rgba(142, 77, 22, 0.25);
+            border: 1px solid var(--text-brand-vision);
+            color: #ff9d42;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        .right-sidebar {
+            background-color: rgba(10, 10, 10, 0.9);
+            border-left: 1px solid var(--border-color);
+            padding: 25px 20px;
+            backdrop-filter: blur(6px);
+        }
+
+        .sidebar-widget {
+            background-color: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+
+        .widget-title {
+            color: var(--text-brand-vision);
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+        }
+
+        .metric-stat {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: #ffffff;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header class="courtvision-header">
+        <h1 class="brand">COURT<span class="vision">VISION</span></h1>
+        <div class="header-actions">
+            <div id="coach-profile" class="user-status">Active Sandbox: Loading...</div>
+            <button class="logout-btn" id="logout-trigger-btn">Log Out</button>
+        </div>
+    </header>
+
+    <div class="app-layout">
+        <nav class="left-sidebar">
+            <a href="index.html" class="nav-link">Sign Out</a>
+            <a href="home.html" class="nav-link">Home</a>
+            <a href="dashboard.html" class="nav-link">Dashboard Overview</a>
+            <a href="game-analytics.html" class="nav-link active">Game Analytics</a>
+            <a href="player_deepdive.html" class="nav-link">Player Deep Dive</a>
+            <a href="team.html" class="nav-link">Team Management</a>
+        </nav>
+
+        <main class="main-workspace">
+            <div class="control-row">
+                <div>
+                    <h2 style="margin:0; font-size: 24px;">Single Match Stat & In-Game Analytics</h2>
+                    <p style="margin:5px 0 0 0; color: var(--text-muted); font-size: 13px;">Isolate box score metrics per game log sheet.</p>
+                </div>
+                <div>
+                    <select class="split-select" id="game-selector-dropdown">
+                        <option value="">Awaiting Data Streams...</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="chart-grid">
+                <div class="card" style="margin-bottom:0;">
+                    <h3>Single Game Production Distribution</h3>
+                    <div style="height: 220px; position: relative;" id="container-scoringChart">
+                        <p style="text-align:center; padding-top:80px; color:var(--text-muted);" class="placeholder-text">Upload game logs to generate distribution graph.</p>
+                        <canvas id="scoringDistributionChart" style="display:none;"></canvas>
+                    </div>
+                </div>
+                <div class="card" style="margin-bottom:0;">
+                    <h3>Shooting Performance Matrix (eFG%)</h3>
+                    <div style="height: 220px; position: relative;" id="container-efficiencyChart">
+                        <p style="text-align:center; padding-top:80px; color:var(--text-muted);" class="placeholder-text">Upload game logs to generate efficiency graph.</p>
+                        <canvas id="efficiencyRadarChart" style="display:none;"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 25px;"></div>
+
+            <div class="card">
+                <h3>Match Performance Log Table</h3>
+                <div class="table-scroll-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Player Name</th>
+                                <th style="text-align: center;">MIN</th>
+                                <th style="text-align: center;">PTS</th>
+                                <th style="text-align: center;">AST</th>
+                                <th style="text-align: center;">REB</th>
+                                <th style="text-align: center;">STL</th>
+                                <th style="text-align: center;">BLK</th>
+                                <th style="text-align: center;">TO</th>
+                                <th style="text-align: right;">eFG%</th>
+                            </tr>
+                        </thead>
+                        <tbody id="game-matrix-tbody">
+                            <tr>
+                                <td colspan="9" style="text-align: center; padding: 20px; color: var(--text-muted); font-style: italic;">No box scores isolated yet. Please utilize the Dashboard layout sheet to ingest active records.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+
+        <aside class="right-sidebar">
+            <div class="sidebar-widget">
+                <div class="widget-title">Possession Pace</div>
+                <div class="metric-stat" id="pace-stat-box">--</div>
+            </div>
+            <div class="sidebar-widget">
+                <div class="widget-title">Offensive Rating</div>
+                <div class="metric-stat" id="ortg-stat-box">--</div>
+            </div>
+        </aside>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+        import { getFirestore, doc, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAoCTKQ3072pftAkYJgIsGhaR589ljhJ_0",
+            authDomain: "my-solo-project-basket.firebaseapp.com",
+            projectId: "my-solo-project-basket",
+            storageBucket: "my-solo-project-basket.firebasestorage.app",
+            messagingSenderId: "109404963599",
+            appId: "1:109404963599:web:2ab5e946f13cdea8f6347a"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const coachName = sessionStorage.getItem("coachName");
+        if (!coachName) { window.location.href = "index.html"; }
+        document.getElementById("coach-profile").innerText = `Active Sandbox: ${coachName}`;
+
+        const teamDocRef = doc(db, "teams", `sandbox_${coachName}`);
+        let barChartInstance = null;
+        let lineChartInstance = null;
+        
+        let gameIdToFileNameMap = {}; 
+        let gameIdToTimestampMap = {};
+        let cachedScores = [];
+        let csvGameIds = [];
+
+        async function loadAndIntegrateDataStreams() {
+            const dropdown = document.getElementById("game-selector-dropdown");
+            dropdown.innerHTML = "";
+            cachedScores = [];
+            gameIdToFileNameMap = {};
+            gameIdToTimestampMap = {};
+            csvGameIds = [];
+
+            // 1. Fetch games registry metadata
+            const gamesSnap = await getDocs(collection(teamDocRef, "games"));
+            if(gamesSnap.empty) {
+                dropdown.innerHTML = '<option value="">No Active Games Logged</option>';
+                return;
+            }
+
+            let uniqueCSVFiles = [];
+            let gameRecords = [];
+
+            gamesSnap.forEach(g => {
+                const data = g.data();
+                gameIdToFileNameMap[data.gameId] = data.sourceFile;
+                
+                // Extract clean timestamps from game ID string patterns (e.g. game_1718920000)
+                let ts = parseInt(data.gameId.replace("game_", "")) || Date.now();
+                gameIdToTimestampMap[data.gameId] = ts;
+
+                if (!data.sourceFile.startsWith("Manual: ")) {
+                    csvGameIds.push(data.gameId);
+                    if (!uniqueCSVFiles.includes(data.sourceFile)) {
+                        uniqueCSVFiles.push(data.sourceFile);
+                        gameRecords.push({ filename: data.sourceFile, timestamp: ts });
+                    }
+                }
+            });
+
+            // Sort CSV games chronologically
+            gameRecords.sort((a, b) => a.timestamp - b.timestamp);
+
+            if (gameRecords.length === 0) {
+                dropdown.innerHTML = '<option value="Manual Entries Only">Manual Entries Workspace</option>';
+            } else {
+                gameRecords.forEach(gr => {
+                    dropdown.innerHTML += `<option value="${gr.filename}">${gr.filename}</option>`;
+                });
+            }
+
+            // 2. Fetch all stored box score data logs into cache memory
+            const scoresSnap = await getDocs(collection(teamDocRef, "player_box_scores"));
+            scoresSnap.forEach(s => cachedScores.push(s.data()));
+
+            // Initialize default active view
+            if(gameRecords.length > 0) {
+                dropdown.value = gameRecords[0].filename;
+                renderIntegratedMatrix(gameRecords[0].filename);
+            } else {
+                renderIntegratedMatrix("Manual Entries Only");
+            }
+        }
+
+        window.renderIntegratedMatrix = function(selectedCSVName) {
+            const tbody = document.getElementById("game-matrix-tbody");
+            tbody.innerHTML = "";
+
+            // Dynamic Proximity Matching Logic
+            const matchRows = cachedScores.filter(row => {
+                const rowFileName = gameIdToFileNameMap[row.gameId] || "";
+                
+                // Case A: If it maps explicitly to a CSV name, grab it
+                if (rowFileName === selectedCSVName) return true;
+
+                // Case B: If the row is a manual input form entry, match it to the closest uploaded CSV
+                if (rowFileName.startsWith("Manual: ")) {
+                    if (selectedCSVName === "Manual Entries Only") return true;
+
+                    let manualTimestamp = gameIdToTimestampMap[row.gameId] || 0;
+                    
+                    // Look through all available CSVs to find the best timestamp match
+                    let targetGameId = "";
+                    let minimumDiff = Infinity;
+
+                    csvGameIds.forEach(csvId => {
+                        let csvTimestamp = gameIdToTimestampMap[csvId] || 0;
+                        let diff = Math.abs(manualTimestamp - csvTimestamp);
+                        
+                        // Entries within 10 minutes of a data upload drop merge automatically
+                        if (diff < minimumDiff && diff < (10 * 60 * 1000)) {
+                            minimumDiff = diff;
+                            targetGameId = csvId;
+                        }
+                    });
+
+                    // If it matches this game log choice, merge it right into the row view
+                    return gameIdToFileNameMap[targetGameId] === selectedCSVName;
+                }
+
+                return false;
+            });
+
+            if(matchRows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--text-muted);">No records linked inside this game view split.</td></tr>`;
+                return;
+            }
+
+            const players = [], pts = [], efgs = [];
+            let totalPts = 0, totalFga = 0, totalFgm = 0, totalTpm = 0, totalTo = 0;
+
+            matchRows.forEach(row => {
+                const fga = row.fga || 0, fgm = row.fgm || 0, tpm = row.tpm || 0;
+                const efgVal = fga > 0 ? (((fgm + (0.5 * tpm)) / fga) * 100).toFixed(1) : "0.0";
+                
+                totalPts += row.points || 0;
+                totalFga += fga;
+                totalFgm += fgm;
+                totalTpm += tpm;
+                totalTo += row.turnovers || 0;
+
+                const originalSource = gameIdToFileNameMap[row.gameId] || "";
+                const isManual = originalSource.startsWith("Manual: ");
+                const displayPlayerName = row.playerName + (isManual ? `<span class="manual-badge">Manual</span>` : "");
+
+                players.push(row.playerName + (isManual ? " (M)" : ""));
+                pts.push(row.points || 0);
+                efgs.push(parseFloat(efgVal));
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td style="font-weight:600; color:white; display:flex; align-items:center;">${displayPlayerName}</td>
+                        <td style="text-align:center;">${row.minutes || 0}</td>
+                        <td style="text-align:center; color:white; font-weight:600;">${row.points || 0}</td>
+                        <td style="text-align:center;">${row.assists || 0}</td>
+                        <td style="text-align:center;">${row.rebounds || 0}</td>
+                        <td style="text-align:center; color:#4ade80;">${row.steals || 0}</td>
+                        <td style="text-align:center; color:#4ade80;">${row.blocks || 0}</td>
+                        <td style="text-align:center; color:#ff3333;">${row.turnovers || 0}</td>
+                        <td style="text-align:right; font-weight:bold; color:#4ade80;">${efgVal}%</td>
+                    </tr>`;
+            });
+
+            // Calculate contextual team indicators
+            const calculatedPace = (totalFga + (0.44 * (totalPts * 0.2)) + totalTo).toFixed(1);
+            document.getElementById("pace-stat-box").innerText = calculatedPace;
+            document.getElementById("ortg-stat-box").innerText = calculatedPace > 0 ? ((totalPts / calculatedPace) * 100).toFixed(1) : "--";
+
+            // Trigger visual graphic maps
+            document.querySelectorAll(".placeholder-text").forEach(p => p.style.display = "none");
+            document.getElementById("scoringDistributionChart").style.display = "block";
+            document.getElementById("efficiencyRadarChart").style.display = "block";
+
+            if(barChartInstance) barChartInstance.destroy();
+            if(lineChartInstance) lineChartInstance.destroy();
+
+            barChartInstance = new Chart(document.getElementById('scoringDistributionChart').getContext('2d'), {
+                type: 'bar',
+                data: { labels: players, datasets: [{ label: 'Points', data: pts, backgroundColor: 'rgba(142, 77, 22, 0.6)', borderColor: '#8E4D16', borderWidth: 2 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+
+            lineChartInstance = new Chart(document.getElementById('efficiencyRadarChart').getContext('2d'), {
+                type: 'line',
+                data: { labels: players, datasets: [{ label: 'eFG%', data: efgs, borderColor: '#8E4D16', backgroundColor: 'rgba(142, 77, 22, 0.1)', borderWidth: 3, fill: true }] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } } }
+            });
+        };
+
+        document.getElementById("game-selector-dropdown").addEventListener("change", (e) => {
+            if(e.target.value) renderIntegratedMatrix(e.target.value);
+        });
+
+        document.getElementById("logout-trigger-btn").addEventListener("click", () => {
+            sessionStorage.clear(); window.location.href = "index.html";
+        });
+
+        loadAndIntegrateDataStreams();
+    </script>
+</body>
+</html>

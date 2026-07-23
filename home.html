@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CourtVision - Home </title>
+    <style>
+        :root {
+            --primary-bg: #0A0A0A;
+            --card-bg: #161a22;
+            --border-color: #283141;
+            --header-divider: #8E4D16;
+            --text-brand-vision: #8E4D16;
+            --text-brand-court: #E5E7EB;
+            --text-muted: #9aa5b5;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #0d0f12;
+            color: #ffffff;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* Top Navigation Bar */
+        .courtvision-header {
+            background-color: var(--primary-bg);
+            color: var(--text-brand-court);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 30px;
+            border-bottom: 2px solid var(--header-divider);
+        }
+
+        .courtvision-header h1.brand {
+            margin: 0;
+            font-size: 1.8rem;
+            text-transform: uppercase;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .courtvision-header h1.brand span.vision {
+            color: var(--text-brand-vision);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .user-status, .logout-btn {
+            padding: 8px 18px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .user-status {
+            color: var(--text-brand-vision);
+            background-color: rgba(142, 77, 22, 0.1);
+        }
+
+        .logout-btn {
+            background-color: transparent;
+            color: var(--text-brand-vision);
+            border: 1px solid var(--text-brand-vision);
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .logout-btn:hover {
+            background-color: var(--text-brand-vision);
+            color: #ffffff;
+        }
+
+        /* Three-Column Framework Layout */
+        .app-layout {
+            display: grid;
+            grid-template-columns: 240px 1fr 280px;
+            flex: 1;
+            background-image: linear-gradient(rgba(13, 15, 18, 0.85), rgba(13, 15, 18, 0.95)),
+                url('https://images.unsplash.com/photo-1544698310-74ea9d1c8258?q=80&w=1600&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+
+        /* Left Navigation Sidebar */
+        .left-sidebar {
+            background-color: rgba(10, 10, 10, 0.9);
+            border-right: 1px solid var(--border-color);
+            padding: 25px 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            backdrop-filter: blur(6px);
+        }
+
+        .nav-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            padding: 12px 15px;
+            border-radius: 6px;
+            font-weight: 600;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            color: #ffffff;
+            background-color: rgba(142, 77, 22, 0.15);
+            border-left: 4px solid var(--text-brand-vision);
+        }
+
+        /* Central Workspace */
+        .main-workspace {
+            padding: 30px;
+            overflow-y: auto;
+        }
+
+        /* Macro Hero Banner Card */
+        .hero-card {
+            background: linear-gradient(135deg, rgba(22, 26, 34, 0.95), rgba(142, 77, 22, 0.15));
+            border: 1px solid var(--border-color);
+            border-left: 5px solid var(--text-brand-vision);
+            padding: 35px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            margin-bottom: 25px;
+            backdrop-filter: blur(4px);
+        }
+
+        .hero-card h2 {
+            margin: 0 0 10px 0;
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .hero-card p {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        /* Grid Layouts for Home Content Widgets */
+        .widget-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .card {
+            background-color: rgba(22, 26, 34, 0.9);
+            border: 1px solid var(--border-color);
+            padding: 22px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(4px);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .card h3 {
+            margin-top: 0;
+            font-size: 16px;
+            color: #ffffff;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .card p {
+            color: var(--text-muted);
+            font-size: 13px;
+            line-height: 1.5;
+            margin: 0 0 15px 0;
+        }
+
+        /* Interactive App Quick Launch Action Buttons */
+        .launch-btn {
+            background-color: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            color: #ffffff;
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            transition: all 0.2s ease-in-out;
+        }
+        .launch-btn:hover {
+            background-color: rgba(142, 77, 22, 0.15);
+            border-color: var(--text-brand-vision);
+            color: #ffffff;
+        }
+
+        /* Right Sidebar Panel Widgets */
+        .right-sidebar {
+            background-color: rgba(10, 10, 10, 0.9);
+            border-left: 1px solid var(--border-color);
+            padding: 25px 20px;
+            backdrop-filter: blur(6px);
+        }
+
+        .sidebar-widget {
+            background-color: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .widget-title {
+            color: var(--text-brand-vision);
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+            letter-spacing: 0.5px;
+        }
+
+        .status-bullet {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: #4ade80;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Persistent Header Component -->
+    <header class="courtvision-header">
+        <h1 class="brand">COURT<span class="vision">VISION</span></h1>
+        <div class="header-actions">
+            <div id="coach-profile" class="user-status">Active Sandbox: Loading...</div>
+            <button class="logout-btn" id="logout-trigger-btn">Log Out</button>
+        </div>
+    </header>
+
+    <div class="app-layout">
+        <!-- Shared Left Sidebar Navbar Elements -->
+        <nav class="left-sidebar">
+            <a href="index.html" class="nav-link">Sign Out</a>
+            <a href="home.html" class="nav-link active">Home</a>
+            <a href="dashboard.html" class="nav-link">Dashboard Overview</a>
+            <a href="game-analytics.html" class="nav-link">Game Analytics</a>
+            <a href="player_deepdive.html" class="nav-link">Player Deep Dive</a>
+            <a href="team.html" class="nav-link">Team Management</a>
+        </nav>
+
+        <!-- Central Layout Workspace Panel -->
+        <main class="main-workspace">
+            
+            <!-- Hero Welcome Card Banner -->
+            <div class="hero-card">
+                <h2>Welcome to CourtVision, <span id="welcome-coach-name" style="color: var(--text-brand-vision);">Coach</span></h2>
+                <p>Your unified advanced basketball analytics control station. Import box score metrics, monitor roster efficiency scores (eFG), track true game pace distributions, and transform statistical logs into tactical action.</p>
+            </div>
+
+            <!-- Program Task Action Widgets Grid -->
+            <div class="widget-grid">
+                
+                <!-- Card 1: Data Ingestion Launchpad -->
+                <div class="card">
+                    <div>
+                        <h3>Data Ingestion Desk</h3>
+                        <p>Upload new game box score CSV files or manually enter player performance records to recalculate rolling team performance vectors.</p>
+                    </div>
+                    <a href="dashboard.html" class="launch-btn">Open Dashboard &rarr;</a>
+                </div>
+
+                <!-- Card 2: Game Analytics Launchpad -->
+                <div class="card">
+                    <div>
+                        <h3>Game Center</h3>
+                        <p>Isolate single-match performance matrices, view production chart breakdowns, and study individual match efficiency rating structures.</p>
+                    </div>
+                    <a href="game-analytics.html" class="launch-btn">Launch Game Analytics &rarr;</a>
+                </div>
+
+                <!-- Card 3: Scouting / Deep Dive Launchpad -->
+                <div class="card">
+                    <div>
+                        <h3>Player Profiles</h3>
+                        <p>Conduct microscopic evaluation of roster components over time, evaluate secondary asset distributions, and study scoring point trends.</p>
+                    </div>
+                    <a href="player_deepdive.html" class="launch-btn">Explore Deep Dives &rarr;</a>
+                </div>
+
+            </div>
+
+            <!-- Secondary System Status / Instructions Card -->
+            <div class="card" style="margin-bottom:0;">
+                <h3 style="color: var(--text-brand-vision);">🚀 Standard System Initialization Quick-Start</h3>
+                <ol style="color: var(--text-muted); font-size: 13px; line-height: 1.8; margin: 5px 0 0 0; padding-left: 20px;">
+                    <li>Navigate to the <strong>Dashboard Overview</strong> link in the sidebar menu.</li>
+                    <li>Drop your box score CSV log sheets sequentially into the ingestion engine workspace.</li>
+                    <li>Open <strong>Game Analytics</strong> or <strong>Team Management</strong> to view instantly populated dark-theme charts and computed pace data.</li>
+                </ol>
+            </div>
+
+        </main>
+
+        <!-- Right Side Analytical Sidebar Panels -->
+        <aside class="right-sidebar">
+            <div class="sidebar-widget">
+                <div class="widget-title">Engine Registry Status</div>
+                <div style="display:flex; align-items:center; margin-bottom:10px; color:#ffffff; font-weight:600;">
+                    <span class="status-bullet"></span> Firestore Sync Active
+                </div>
+                <p style="margin:0; font-size:11px; line-height:1.4;">Real-time communication lines with data sandbox schemas are fully established and operational.</p>
+            </div>
+            
+            <div class="sidebar-widget">
+                <div class="widget-title">Session Profile Data</div>
+                <div style="margin-bottom:6px;">Username: <span id="sb-username-text" style="color:#ffffff; font-weight:600;">--</span></div>
+                <div>Access Clear: <span style="color:#ffffff; font-weight:600;">Coach Sandbox</span></div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Script verification ensuring authenticated execution passes -->
+    <script>
+        const coachName = sessionStorage.getItem("coachName");
+
+        // If no active coach profile is found in the session, route them back to the gate entry lock
+        if (!coachName) { 
+            window.location.href = "index.html"; 
+        }
+
+        // Dynamically customize text values inside elements on page load
+        document.addEventListener("DOMContentLoaded", () => {
+            document.getElementById("coach-profile").innerText = `Active Sandbox: ${coachName}`;
+            document.getElementById("welcome-coach-name").innerText = coachName;
+            document.getElementById("sb-username-text").innerText = coachName;
+        });
+
+        document.getElementById("logout-trigger-btn").addEventListener("click", () => {
+            if (confirm("Log out of CourtVision?")) { 
+                sessionStorage.clear(); 
+                window.location.href = "index1.html"; 
+            }
+        });
+    </script>
+</body>
+
+</html>
