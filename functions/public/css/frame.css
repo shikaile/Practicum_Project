@@ -900,3 +900,36 @@ textarea.feedback-input {
 .game-athlete-option.selected .team-list-item-name {
 	color: #fff;
 }
+
+/* Quick links between the CourtVision analytics suite pages (Dashboard,
+   Team/Game/Player analytics) - shared by views/partials/analytics-nav.ejs. */
+.analytics-subnav {
+	max-width: 1050px;
+	margin: 0 auto 20px;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+}
+
+.analytics-subnav a {
+	color: var(--cv-text-muted);
+	text-decoration: none;
+	font-weight: 600;
+	font-size: 13px;
+	padding: 8px 16px;
+	border-radius: 20px;
+	border: 1px solid var(--cv-border);
+	background-color: var(--cv-card-bg);
+	transition: all 0.2s ease-in-out;
+}
+
+.analytics-subnav a:hover {
+	color: #ffffff;
+	border-color: var(--cv-accent);
+}
+
+.analytics-subnav a.active {
+	color: #ffffff;
+	background-color: var(--cv-accent);
+	border-color: var(--cv-accent);
+}

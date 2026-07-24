@@ -44,11 +44,8 @@ function isRateLimited(ip) {
     return record.count > RATE_LIMIT_MAX;
 }
 
-router.get('/', async (req,res) =>{
-    let images = [];
-    let error = null;
-
-    res.render('index', { images, error });
+router.get('/', (req, res) => {
+    res.render('index');
 });
 
 router.get('/about', (req,res) =>{
@@ -73,6 +70,25 @@ router.get('/participate', (req,res) =>{
 router.get('/dashboard', (req, res) => {
     if (!res.locals.user) return res.redirect('/login');
     res.render('pages/dashboard');
+});
+
+// Ported from a contributor's standalone CourtVision analytics pages
+// (views/pages/team_analytics.html, game_analytics.html, player_analytics.html),
+// wired up to this app's real login and /api/games data instead of their
+// original sessionStorage auth + direct Firestore reads.
+router.get('/team-analytics', (req, res) => {
+    if (!res.locals.user) return res.redirect('/login');
+    res.render('pages/team_analytics');
+});
+
+router.get('/game-analytics', (req, res) => {
+    if (!res.locals.user) return res.redirect('/login');
+    res.render('pages/game_analytics');
+});
+
+router.get('/player-analytics', (req, res) => {
+    if (!res.locals.user) return res.redirect('/login');
+    res.render('pages/player_analytics');
 });
 
 // The standalone contact page was merged into /about - redirect old links.

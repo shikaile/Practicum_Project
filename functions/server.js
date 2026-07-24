@@ -25,7 +25,7 @@ app.use((req, res, next) => {
       "img-src 'self' https://imagedelivery.net https://images.unsplash.com data:",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com https://code.getmdl.io",
       "font-src 'self' https://fonts.gstatic.com",
-      "script-src 'self' https://cdnjs.cloudflare.com https://code.getmdl.io",
+      "script-src 'self' https://cdnjs.cloudflare.com https://code.getmdl.io https://cdn.jsdelivr.net",
       "connect-src 'self'",
     ].join('; ')
   );
