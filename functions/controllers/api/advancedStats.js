@@ -1,10 +1,13 @@
 const router = require('express').Router();
 const {
     createGameRecord,
+    getGameRecordsForUser,
+    deleteGameRecord,
     findGameRecordByDateAndOpponent,
     createGameStats,
     findOrCreatePlayer,
     createPlayerStats,
+    getAllPlayerStatsForUser,
 } = require('../../models/database');
 
 // Backs the Dashboard's "Individual Athlete Stats" / "Team Stats" CSV
@@ -55,6 +58,49 @@ function sanitizeStats(input, keys) {
 function isValidDateString(value) {
     return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
+
+// Lists CSV-ingested games and their season-wide player stats - this is the
+// only data source the Dashboard/Team Analytics/Game Analytics/Player Deep
+// Dive pages read from. The Game page's live stat-logging and the
+// Dashboard's Manual Entry form write to the separate games/player_box_scores
+// tables (see controllers/api/games.js) instead, and are never surfaced here.
+router.get('/games', requireAuth, async (req, res) => {
+    try {
+        const games = await getGameRecordsForUser(res.locals.user.id);
+        res.json({ games });
+    } catch (err) {
+        console.error('Failed to load games:', err.message);
+        res.status(500).json({ error: 'Something went wrong loading games.' });
+    }
+});
+
+router.get('/player-stats', requireAuth, async (req, res) => {
+    try {
+        const playerStats = await getAllPlayerStatsForUser(res.locals.user.id);
+        res.json({ playerStats });
+    } catch (err) {
+        console.error('Failed to load player stats:', err.message);
+        res.status(500).json({ error: 'Something went wrong loading player stats.' });
+    }
+});
+
+router.delete('/games/:gameId', requireAuth, async (req, res) => {
+    const gameId = Number(req.params.gameId);
+    if (!Number.isInteger(gameId)) {
+        return res.status(400).json({ error: 'Invalid game id.' });
+    }
+
+    try {
+        const deleted = await deleteGameRecord(res.locals.user.id, gameId);
+        if (!deleted) {
+            return res.status(404).json({ error: 'Game not found.' });
+        }
+        res.status(204).end();
+    } catch (err) {
+        console.error('Failed to delete game:', err.message);
+        res.status(500).json({ error: 'Something went wrong deleting the game.' });
+    }
+});
 
 // Team Stats CSV (mirrors public/py/gameStats_ingestion.py): one row each
 // for "my" team and the opponent, keyed to a game by date + opponent name

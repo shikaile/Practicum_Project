@@ -377,12 +377,14 @@ async function postGame(sourceFile, players) {
     return { ok: true, data };
 }
 
-// Dynamic Game Removal Engine
+// Dynamic Game Removal Engine - operates on the CSV-ingested game_records
+// table (see models/database.js), not the separate games table the Game
+// page's live stat-logging and Manual Entry form write to.
 async function deleteGameRecord(gameId, displayTitle) {
     if (!confirm(`Are you absolutely sure you want to delete data logs for [ ${displayTitle} ]?`)) return;
 
     try {
-        const response = await fetch(`/api/games/${gameId}`, { method: 'DELETE' });
+        const response = await fetch(`/api/advanced-stats/games/${gameId}`, { method: 'DELETE' });
         if (!response.ok && response.status !== 404) {
             throw new Error(`Delete failed with status ${response.status}`);
         }
@@ -402,26 +404,31 @@ document.getElementById("game-management-body").addEventListener("click", (event
     deleteGameRecord(btn.dataset.gameId, btn.dataset.sourceFile);
 });
 
-// Aggregation and advanced calculation framework loop
+// Aggregation and advanced calculation framework loop - reads only from the
+// CSV-ingested game_records/player_stats tables (via /api/advanced-stats/*),
+// so this view only ever reflects uploaded CSVs, never the Game page's live
+// stat-logging or the Manual Entry form above (both of which still write to
+// the separate games/player_box_scores tables - see controllers/api/games.js).
 async function loadSeasonAnalytics() {
     try {
-        const [gamesResponse, boxScoresResponse] = await Promise.all([
-            fetch('/api/games'),
-            fetch('/api/games/box-scores'),
+        const [gamesResponse, playerStatsResponse] = await Promise.all([
+            fetch('/api/advanced-stats/games'),
+            fetch('/api/advanced-stats/player-stats'),
         ]);
         const { games } = await gamesResponse.json();
-        const { boxScores } = await boxScoresResponse.json();
+        const { playerStats: boxScores } = await playerStatsResponse.json();
 
         // Sync Audit Panel
         const mgmtBody = document.getElementById("game-management-body");
         mgmtBody.innerHTML = "";
 
         games.forEach((game) => {
+            const sourceFile = `${game.opponent} (${game.gameDate ? game.gameDate.slice(0, 10) : 'unknown date'})`;
             mgmtBody.innerHTML += `
                 <tr style="border-bottom: 1px solid #1a222d;">
-                    <td style="padding: 8px 6px; color: #ffffff; font-weight: 500;">${game.sourceFile}</td>
+                    <td style="padding: 8px 6px; color: #ffffff; font-weight: 500;">${sourceFile}</td>
                     <td style="padding: 8px 6px; text-align: right;">
-                        <button class="delete-btn" data-game-id="${game.id}" data-source-file="${game.sourceFile}">🗑️ Remove</button>
+                        <button class="delete-btn" data-game-id="${game.id}" data-source-file="${sourceFile}">🗑️ Remove</button>
                     </td>
                 </tr>
             `;

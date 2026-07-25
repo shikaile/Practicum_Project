@@ -500,6 +500,21 @@ async function getGameRecordsForUser(userId) {
   return result.rows;
 }
 
+// Deletes a game record (and, via ON DELETE CASCADE, its game_stats and
+// player_stats rows) if it exists and belongs to the given user. Returns
+// whether anything was deleted.
+async function deleteGameRecord(userId, gameId) {
+  await ensureSchema();
+  const pool = await getPool();
+
+  const result = await pool.query(
+    'DELETE FROM game_records WHERE id = $1 AND user_id = $2',
+    [gameId, userId]
+  );
+
+  return result.rowCount > 0;
+}
+
 // Looks up a previously-ingested game by date + opponent (mirrors
 // playerStats_ingestion.py, which uses this to attach player stats to the
 // game record the team-stats script already inserted).
@@ -646,6 +661,34 @@ async function getPlayerStatsForGame(userId, gameId) {
      WHERE ps.game_id = $1 AND g.user_id = $2
      ORDER BY p.player_number ASC NULLS LAST`,
     [gameId, userId]
+  );
+
+  return result.rows;
+}
+
+// Returns every player stat line across every game_records game owned by
+// the given user, joined with the player's name/number and the game's
+// date/opponent - backs the Dashboard/Team Analytics/Game Analytics/Player
+// Deep Dive pages, which read only from CSV-uploaded data (game_records +
+// player_stats), not the separate games/player_box_scores tables the Game
+// page's live stat-logging and the Dashboard's Manual Entry form use.
+async function getAllPlayerStatsForUser(userId) {
+  await ensureSchema();
+  const pool = await getPool();
+
+  const result = await pool.query(
+    `SELECT ps.id, ps.player_id AS "playerId", ps.game_id AS "gameId",
+            ps.mp AS minutes, ps.points, ps.fgm, ps.fga, ps.tpm, ps.tpa,
+            ps.ftm, ps.fta, ps.off_rebounds AS "offRebounds", ps.def_rebounds AS "defRebounds",
+            ps.rebounds, ps.assists, ps.steals, ps.blocks, ps.turnovers, ps.fouls,
+            p.name AS "playerName", p.player_number AS "playerNumber",
+            g.game_date AS "gameDate", g.opponent
+     FROM player_stats ps
+     JOIN players p ON p.id = ps.player_id
+     JOIN game_records g ON g.id = ps.game_id
+     WHERE p.user_id = $1
+     ORDER BY g.game_date ASC NULLS LAST, ps.id ASC`,
+    [userId]
   );
 
   return result.rows;
@@ -935,6 +978,7 @@ module.exports = {
   incrementPlayerBoxScoreStat,
   createGameRecord,
   getGameRecordsForUser,
+  deleteGameRecord,
   findGameRecordByDateAndOpponent,
   createGameStats,
   getGameStatsForGame,
@@ -942,4 +986,5 @@ module.exports = {
   getPlayersForUser,
   createPlayerStats,
   getPlayerStatsForGame,
+  getAllPlayerStatsForUser,
 };

@@ -1,9 +1,10 @@
 // CourtVision game analytics - ported from a contributor's standalone
 // views/pages/game_analytics.html. Originally read Firestore directly from
 // the browser and had to fuzzy-match manual entries to CSV uploads by
-// timestamp proximity; this app's box scores carry a real gameId foreign
-// key (see /api/games and /api/games/box-scores, backed by PostgreSQL), so
-// filtering by game is a plain equality check.
+// timestamp proximity; this app's stats carry a real gameId foreign key
+// (see /api/advanced-stats/games and /api/advanced-stats/player-stats,
+// backed by PostgreSQL - only CSV-uploaded data lands there, not the Game
+// page's live stat-logging), so filtering by game is a plain equality check.
 
 let scoringChartInstance = null;
 let efficiencyChartInstance = null;
@@ -13,11 +14,11 @@ let boxScores = [];
 async function loadGameAnalytics() {
     try {
         const [gamesResponse, boxScoresResponse] = await Promise.all([
-            fetch('/api/games'),
-            fetch('/api/games/box-scores'),
+            fetch('/api/advanced-stats/games'),
+            fetch('/api/advanced-stats/player-stats'),
         ]);
         ({ games } = await gamesResponse.json());
-        ({ boxScores } = await boxScoresResponse.json());
+        ({ playerStats: boxScores } = await boxScoresResponse.json());
 
         const dropdown = document.getElementById('game-selector-dropdown');
 
@@ -26,7 +27,10 @@ async function loadGameAnalytics() {
             return;
         }
 
-        dropdown.innerHTML = games.map((game) => `<option value="${game.id}">${game.sourceFile}</option>`).join('');
+        dropdown.innerHTML = games.map((game) => {
+            const label = `${game.opponent} (${game.gameDate ? game.gameDate.slice(0, 10) : 'unknown date'})`;
+            return `<option value="${game.id}">${label}</option>`;
+        }).join('');
         dropdown.value = games[games.length - 1].id;
         renderGameMatrix(games[games.length - 1].id);
     } catch (err) {

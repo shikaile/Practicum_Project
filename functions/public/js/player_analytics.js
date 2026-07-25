@@ -1,7 +1,9 @@
 // CourtVision player deep-dive - ported from a contributor's standalone
 // views/pages/player_analytics.html. Originally read Firestore directly
-// from the browser; now talks to this app's own /api/games/box-scores
-// endpoint (backed by PostgreSQL), scoped by the logged-in user's session.
+// from the browser; now talks to this app's own
+// /api/advanced-stats/player-stats endpoint (backed by PostgreSQL), scoped
+// by the logged-in user's session. Reflects only CSV-uploaded data, not the
+// Game page's live stat-logging or the Dashboard's Manual Entry form.
 
 let trendChartInstance = null;
 let matrixChartInstance = null;
@@ -9,8 +11,8 @@ let boxScores = [];
 
 async function loadPlayerRoster() {
     try {
-        const response = await fetch('/api/games/box-scores');
-        ({ boxScores } = await response.json());
+        const response = await fetch('/api/advanced-stats/player-stats');
+        ({ playerStats: boxScores } = await response.json());
 
         const selector = document.getElementById('player-profile-selector');
 

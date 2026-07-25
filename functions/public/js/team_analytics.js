@@ -1,15 +1,18 @@
 // CourtVision team analytics - ported from a contributor's standalone
 // views/pages/team_analytics.html. Originally read Firestore directly from
-// the browser; now talks to this app's own /api/games/box-scores endpoint
-// (backed by PostgreSQL), scoped by the logged-in user's session.
+// the browser; now talks to this app's own /api/advanced-stats/player-stats
+// endpoint (backed by PostgreSQL), scoped by the logged-in user's session.
+// This only reflects CSV-uploaded data (game_records/player_stats) - not
+// the Game page's live stat-logging or the Dashboard's Manual Entry form,
+// which write to a separate games/player_box_scores table instead.
 
 let pointsChartInstance = null;
 let efficiencyChartInstance = null;
 
 async function loadTeamAnalytics() {
     try {
-        const response = await fetch('/api/games/box-scores');
-        const { boxScores } = await response.json();
+        const response = await fetch('/api/advanced-stats/player-stats');
+        const { playerStats: boxScores } = await response.json();
 
         const playerMap = {};
         boxScores.forEach((row) => {
