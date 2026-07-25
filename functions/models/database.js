@@ -154,6 +154,111 @@ async function ensureSchema() {
           user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
           email TEXT NOT NULL,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        -- Ported from a contributor's models/archetec.sql, a standalone
+        -- SQLite schema (with matching ingestion scripts in public/py/) for
+        -- a more detailed, advanced-metrics box score than the
+        -- games/player_box_scores tables above. Converted to Postgres
+        -- (SERIAL ids, snake_case columns, quoted "%"-suffixed names aren't
+        -- used - percentages are named "_pct" instead) and scoped per user
+        -- like every other table here, since the source schema assumed a
+        -- single standalone team with no coach/user concept. Named
+        -- "game_records"/"players" rather than "games"/"athletes" to avoid
+        -- colliding with the existing tables of those names, which serve a
+        -- different (simpler, CSV/manual entry) box-score flow.
+        CREATE TABLE IF NOT EXISTS game_records (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          game_date DATE,
+          opponent TEXT,
+          location TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS players (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          name TEXT NOT NULL,
+          player_number INTEGER,
+          class TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS player_stats (
+          id SERIAL PRIMARY KEY,
+          player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+          game_id INTEGER NOT NULL REFERENCES game_records(id) ON DELETE CASCADE,
+          mp INTEGER,
+          points INTEGER,
+          fgm INTEGER,
+          fga INTEGER,
+          fg_pct REAL,
+          tpm INTEGER,
+          tpa INTEGER,
+          tp_pct REAL,
+          ftm INTEGER,
+          fta INTEGER,
+          ft_pct REAL,
+          off_rebounds INTEGER,
+          def_rebounds INTEGER,
+          rebounds INTEGER,
+          assists INTEGER,
+          steals INTEGER,
+          blocks INTEGER,
+          turnovers INTEGER,
+          fouls INTEGER,
+          plus_minus INTEGER,
+          oreb_pct REAL,
+          dreb_pct REAL,
+          treb_pct REAL,
+          ast_pct REAL,
+          ast_to_ratio REAL,
+          to_ratio REAL,
+          usg_pct REAL,
+          charges_drawn INTEGER,
+          ts_pct REAL,
+          efg_pct REAL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS game_stats (
+          id SERIAL PRIMARY KEY,
+          game_id INTEGER NOT NULL REFERENCES game_records(id) ON DELETE CASCADE,
+          team_role TEXT NOT NULL CHECK (team_role IN ('Team', 'Opponent')),
+          points INTEGER NOT NULL,
+          q1_points INTEGER,
+          q2_points INTEGER,
+          q3_points INTEGER,
+          q4_points INTEGER,
+          ot_points INTEGER,
+          fgm INTEGER,
+          fga INTEGER,
+          fg_pct REAL,
+          tpm INTEGER,
+          tpa INTEGER,
+          tp_pct REAL,
+          ftm INTEGER,
+          fta INTEGER,
+          ft_pct REAL,
+          off_rebounds INTEGER,
+          def_rebounds INTEGER,
+          rebounds INTEGER,
+          assists INTEGER,
+          steals INTEGER,
+          blocks INTEGER,
+          turnovers INTEGER,
+          fouls INTEGER,
+          ts_pct REAL,
+          efg_pct REAL,
+          oreb_pct REAL,
+          dreb_pct REAL,
+          ast_to_ratio REAL,
+          to_pct REAL,
+          off_rating REAL,
+          def_rating REAL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          UNIQUE (game_id, team_role)
         )
       `);
     })().catch((err) => {
@@ -321,6 +426,226 @@ async function getAthletesForTeam(userId, teamId) {
      WHERE a.team_id = $1 AND t.user_id = $2
      ORDER BY a.created_at ASC`,
     [teamId, userId]
+  );
+
+  return result.rows;
+}
+
+// Renames an athlete on a team's roster (e.g. to fix a typo). Ownership is
+// enforced via the EXISTS check, same as addAthlete's join. Returns the
+// updated athlete, or null if it doesn't exist / isn't owned by this user.
+async function renameAthlete(userId, teamId, athleteId, name) {
+  await ensureSchema();
+  const pool = await getPool();
+
+  const updated = await pool.query(
+    `UPDATE athletes SET name = $4
+     WHERE id = $3 AND team_id = $1
+       AND EXISTS (SELECT 1 FROM teams t WHERE t.id = athletes.team_id AND t.user_id = $2)
+     RETURNING id, name, created_at`,
+    [teamId, userId, athleteId, name]
+  );
+
+  return updated.rows[0] || null;
+}
+
+// Removes an athlete from a team's roster (e.g. added by mistake). Returns
+// whether anything was deleted.
+async function deleteAthlete(userId, teamId, athleteId) {
+  await ensureSchema();
+  const pool = await getPool();
+
+  const result = await pool.query(
+    `DELETE FROM athletes
+     WHERE id = $3 AND team_id = $1
+       AND EXISTS (SELECT 1 FROM teams t WHERE t.id = athletes.team_id AND t.user_id = $2)`,
+    [teamId, userId, athleteId]
+  );
+
+  return result.rowCount > 0;
+}
+
+// --- Advanced-metrics box score (ported from archetec.sql) ---
+// See the game_records/players/player_stats/game_stats tables above. These
+// functions mirror what the contributor's public/py/*_ingestion.py scripts
+// did directly against SQLite, but scoped per user and going through this
+// app's own Postgres connection instead.
+
+// Creates a game record (date/opponent/location) owned by the given user.
+async function createGameRecord(userId, { gameDate, opponent, location }) {
+  await ensureSchema();
+  const pool = await getPool();
+
+  const inserted = await pool.query(
+    `INSERT INTO game_records (user_id, game_date, opponent, location)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id, game_date AS "gameDate", opponent, location, created_at AS "createdAt"`,
+    [userId, gameDate, opponent, location]
+  );
+
+  return inserted.rows[0];
+}
+
+// Returns every game record owned by the given user, most recent first.
+async function getGameRecordsForUser(userId) {
+  await ensureSchema();
+  const pool = await getPool();
+
+  const result = await pool.query(
+    `SELECT id, game_date AS "gameDate", opponent, location, created_at AS "createdAt"
+     FROM game_records WHERE user_id = $1 ORDER BY game_date DESC NULLS LAST, id DESC`,
+    [userId]
+  );
+
+  return result.rows;
+}
+
+// Looks up a previously-ingested game by date + opponent (mirrors
+// playerStats_ingestion.py, which uses this to attach player stats to the
+// game record the team-stats script already inserted).
+async function findGameRecordByDateAndOpponent(userId, gameDate, opponent) {
+  await ensureSchema();
+  const pool = await getPool();
+
+  const result = await pool.query(
+    `SELECT id, game_date AS "gameDate", opponent, location, created_at AS "createdAt"
+     FROM game_records WHERE user_id = $1 AND game_date = $2 AND opponent = $3
+     ORDER BY id DESC LIMIT 1`,
+    [userId, gameDate, opponent]
+  );
+
+  return result.rows[0] || null;
+}
+
+const GAME_STATS_COLUMNS = [
+  'points', 'q1_points', 'q2_points', 'q3_points', 'q4_points', 'ot_points',
+  'fgm', 'fga', 'fg_pct', 'tpm', 'tpa', 'tp_pct', 'ftm', 'fta', 'ft_pct',
+  'off_rebounds', 'def_rebounds', 'rebounds', 'assists', 'steals', 'blocks',
+  'turnovers', 'fouls', 'ts_pct', 'efg_pct', 'oreb_pct', 'dreb_pct',
+  'ast_to_ratio', 'to_pct', 'off_rating', 'def_rating',
+];
+
+// Records one team's (or its opponent's) stat line for a game. teamRole
+// must be 'Team' or 'Opponent' (see the CHECK constraint on game_stats).
+// Ownership of the game is enforced via the join against game_records.
+async function createGameStats(userId, gameId, teamRole, stats) {
+  await ensureSchema();
+  const pool = await getPool();
+
+  const statValues = GAME_STATS_COLUMNS.map((column) => (stats ? stats[column] : undefined) ?? null);
+  const statPlaceholders = statValues.map((_, i) => `$${i + 3}`); // $1=gameId, $2=teamRole
+
+  const inserted = await pool.query(
+    `INSERT INTO game_stats (game_id, team_role, ${GAME_STATS_COLUMNS.join(', ')})
+     SELECT $1, $2, ${statPlaceholders.join(', ')}
+     FROM game_records g WHERE g.id = $1 AND g.user_id = $${statValues.length + 3}
+     RETURNING *`,
+    [gameId, teamRole, ...statValues, userId]
+  );
+
+  return inserted.rows[0] || null;
+}
+
+// Returns both stat lines (Team + Opponent) for a game, if any.
+async function getGameStatsForGame(userId, gameId) {
+  await ensureSchema();
+  const pool = await getPool();
+
+  const result = await pool.query(
+    `SELECT gs.*
+     FROM game_stats gs
+     JOIN game_records g ON g.id = gs.game_id
+     WHERE gs.game_id = $1 AND g.user_id = $2
+     ORDER BY gs.team_role ASC`,
+    [gameId, userId]
+  );
+
+  return result.rows;
+}
+
+// Looks up a player by roster number, creating them if they don't exist yet
+// (mirrors playerStats_ingestion.py's "look up or create" logic, which used
+// Player_Number rather than name as the de-duplication key).
+async function findOrCreatePlayer(userId, { name, playerNumber, playerClass }) {
+  await ensureSchema();
+  const pool = await getPool();
+
+  const existing = await pool.query(
+    `SELECT id, name, player_number AS "playerNumber", class, created_at AS "createdAt"
+     FROM players WHERE user_id = $1 AND player_number = $2`,
+    [userId, playerNumber]
+  );
+
+  if (existing.rows.length > 0) {
+    return existing.rows[0];
+  }
+
+  const inserted = await pool.query(
+    `INSERT INTO players (user_id, name, player_number, class)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id, name, player_number AS "playerNumber", class, created_at AS "createdAt"`,
+    [userId, name, playerNumber, playerClass]
+  );
+
+  return inserted.rows[0];
+}
+
+// Returns every player on the given user's roster.
+async function getPlayersForUser(userId) {
+  await ensureSchema();
+  const pool = await getPool();
+
+  const result = await pool.query(
+    `SELECT id, name, player_number AS "playerNumber", class, created_at AS "createdAt"
+     FROM players WHERE user_id = $1 ORDER BY player_number ASC NULLS LAST`,
+    [userId]
+  );
+
+  return result.rows;
+}
+
+const PLAYER_STATS_COLUMNS = [
+  'mp', 'points', 'fgm', 'fga', 'fg_pct', 'tpm', 'tpa', 'tp_pct', 'ftm', 'fta', 'ft_pct',
+  'off_rebounds', 'def_rebounds', 'rebounds', 'assists', 'steals', 'blocks', 'turnovers',
+  'fouls', 'plus_minus', 'oreb_pct', 'dreb_pct', 'treb_pct', 'ast_pct', 'ast_to_ratio',
+  'to_ratio', 'usg_pct', 'charges_drawn', 'ts_pct', 'efg_pct',
+];
+
+// Records one player's stat line for a game. Ownership of both the player
+// and the game is enforced via their joins back to this user.
+async function createPlayerStats(userId, gameId, playerId, stats) {
+  await ensureSchema();
+  const pool = await getPool();
+
+  const statValues = PLAYER_STATS_COLUMNS.map((column) => (stats ? stats[column] : undefined) ?? null);
+  const statPlaceholders = statValues.map((_, i) => `$${i + 4}`); // $1=playerId, $2=gameId, $3=userId
+
+  const inserted = await pool.query(
+    `INSERT INTO player_stats (player_id, game_id, ${PLAYER_STATS_COLUMNS.join(', ')})
+     SELECT $1, $2, ${statPlaceholders.join(', ')}
+     FROM players p
+     JOIN game_records g ON g.id = $2
+     WHERE p.id = $1 AND p.user_id = $3 AND g.user_id = $3
+     RETURNING *`,
+    [playerId, gameId, userId, ...statValues]
+  );
+
+  return inserted.rows[0] || null;
+}
+
+// Returns every player's stat line for a game, joined with the player's name.
+async function getPlayerStatsForGame(userId, gameId) {
+  await ensureSchema();
+  const pool = await getPool();
+
+  const result = await pool.query(
+    `SELECT ps.*, p.name AS player_name, p.player_number
+     FROM player_stats ps
+     JOIN players p ON p.id = ps.player_id
+     JOIN game_records g ON g.id = ps.game_id
+     WHERE ps.game_id = $1 AND g.user_id = $2
+     ORDER BY p.player_number ASC NULLS LAST`,
+    [gameId, userId]
   );
 
   return result.rows;
@@ -497,12 +822,14 @@ async function getPlayerBoxScore(gameId, userId, playerName) {
   return mapBoxScoreRow(result.rows[0]);
 }
 
-// Increments one stat (see LIVE_STAT_COLUMNS) for a player within a game
-// owned by the given user, creating their box score row if needed. Keeps
+// Increments (or, with a negative delta, decrements - e.g. to correct a
+// mis-click) one stat (see LIVE_STAT_COLUMNS) for a player within a game
+// owned by the given user, creating their box score row if needed. Stats
+// are clamped at 0 so a correction can never push a count negative. Keeps
 // `points` (2 per FG Made, 3 per 3-Point Made, 1 per Free Throw Made) and
 // `rebounds` (offRebounds + defRebounds) in sync so the existing Dashboard
 // analytics, which read those two columns, keep working unchanged.
-async function incrementPlayerBoxScoreStat(gameId, userId, playerName, statKey) {
+async function incrementPlayerBoxScoreStat(gameId, userId, playerName, statKey, delta = 1) {
   const column = LIVE_STAT_COLUMNS[statKey];
   if (!column) throw new Error('Invalid stat key');
 
@@ -520,14 +847,14 @@ async function incrementPlayerBoxScoreStat(gameId, userId, playerName, statKey) 
   let row;
   if (existing.rows.length > 0) {
     const updated = await pool.query(
-      `UPDATE player_box_scores SET ${column} = ${column} + 1 WHERE id = $1 RETURNING *`,
-      [existing.rows[0].id]
+      `UPDATE player_box_scores SET ${column} = GREATEST(${column} + $2, 0) WHERE id = $1 RETURNING *`,
+      [existing.rows[0].id, delta]
     );
     row = updated.rows[0];
   } else {
     const inserted = await pool.query(
-      `INSERT INTO player_box_scores (game_id, player_name, ${column}) VALUES ($1, $2, 1) RETURNING *`,
-      [gameId, playerName]
+      `INSERT INTO player_box_scores (game_id, player_name, ${column}) VALUES ($1, $2, $3) RETURNING *`,
+      [gameId, playerName, Math.max(delta, 0)]
     );
     row = inserted.rows[0];
   }
@@ -594,6 +921,8 @@ module.exports = {
   getTeamOwnedByUser,
   addAthlete,
   getAthletesForTeam,
+  renameAthlete,
+  deleteAthlete,
   createGameWithBoxScores,
   getGamesForUser,
   getBoxScoresForUser,
@@ -604,4 +933,13 @@ module.exports = {
   createGame,
   getPlayerBoxScore,
   incrementPlayerBoxScoreStat,
+  createGameRecord,
+  getGameRecordsForUser,
+  findGameRecordByDateAndOpponent,
+  createGameStats,
+  getGameStatsForGame,
+  findOrCreatePlayer,
+  getPlayersForUser,
+  createPlayerStats,
+  getPlayerStatsForGame,
 };

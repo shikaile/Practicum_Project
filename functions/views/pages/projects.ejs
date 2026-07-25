@@ -19,19 +19,58 @@
     <p class="stat-status" id="stat-status">Select an athlete below to log stats for them.</p>
 
     <div class="stat-buttons">
-      <button type="button" class="stat-btn" data-stat="fga"><span class="stat-btn-label">FG Att.</span><span class="stat-btn-count">0</span></button>
-      <button type="button" class="stat-btn" data-stat="fgm"><span class="stat-btn-label">FG Made</span><span class="stat-btn-count">0</span></button>
-      <button type="button" class="stat-btn" data-stat="tpa"><span class="stat-btn-label">3-Point Att</span><span class="stat-btn-count">0</span></button>
-      <button type="button" class="stat-btn" data-stat="tpm"><span class="stat-btn-label">3-Point Made</span><span class="stat-btn-count">0</span></button>
-      <button type="button" class="stat-btn" data-stat="fta"><span class="stat-btn-label">Free Throw Att.</span><span class="stat-btn-count">0</span></button>
-      <button type="button" class="stat-btn" data-stat="ftm"><span class="stat-btn-label">Free Throw Made</span><span class="stat-btn-count">0</span></button>
-      <button type="button" class="stat-btn" data-stat="offRebounds"><span class="stat-btn-label">Off Rebounds</span><span class="stat-btn-count">0</span></button>
-      <button type="button" class="stat-btn" data-stat="defRebounds"><span class="stat-btn-label">Def Rebounds</span><span class="stat-btn-count">0</span></button>
-      <button type="button" class="stat-btn" data-stat="assists"><span class="stat-btn-label">Assists</span><span class="stat-btn-count">0</span></button>
-      <button type="button" class="stat-btn" data-stat="steals"><span class="stat-btn-label">Steals</span><span class="stat-btn-count">0</span></button>
-      <button type="button" class="stat-btn" data-stat="blocks"><span class="stat-btn-label">Blocks</span><span class="stat-btn-count">0</span></button>
-      <button type="button" class="stat-btn" data-stat="turnovers"><span class="stat-btn-label">Turnovers</span><span class="stat-btn-count">0</span></button>
-      <button type="button" class="stat-btn" data-stat="fouls"><span class="stat-btn-label">Fouls</span><span class="stat-btn-count">0</span></button>
+      <div class="stat-control">
+        <button type="button" class="stat-btn-minus" data-stat="fga" data-delta="-1" aria-label="Subtract FG Att.">&minus;</button>
+        <button type="button" class="stat-btn" data-stat="fga" data-delta="1"><span class="stat-btn-label">FG Att.</span><span class="stat-btn-count">0</span></button>
+      </div>
+      <div class="stat-control">
+        <button type="button" class="stat-btn-minus" data-stat="fgm" data-delta="-1" aria-label="Subtract FG Made">&minus;</button>
+        <button type="button" class="stat-btn" data-stat="fgm" data-delta="1"><span class="stat-btn-label">FG Made</span><span class="stat-btn-count">0</span></button>
+      </div>
+      <div class="stat-control">
+        <button type="button" class="stat-btn-minus" data-stat="tpa" data-delta="-1" aria-label="Subtract 3-Point Att">&minus;</button>
+        <button type="button" class="stat-btn" data-stat="tpa" data-delta="1"><span class="stat-btn-label">3-Point Att</span><span class="stat-btn-count">0</span></button>
+      </div>
+      <div class="stat-control">
+        <button type="button" class="stat-btn-minus" data-stat="tpm" data-delta="-1" aria-label="Subtract 3-Point Made">&minus;</button>
+        <button type="button" class="stat-btn" data-stat="tpm" data-delta="1"><span class="stat-btn-label">3-Point Made</span><span class="stat-btn-count">0</span></button>
+      </div>
+      <div class="stat-control">
+        <button type="button" class="stat-btn-minus" data-stat="fta" data-delta="-1" aria-label="Subtract Free Throw Att.">&minus;</button>
+        <button type="button" class="stat-btn" data-stat="fta" data-delta="1"><span class="stat-btn-label">Free Throw Att.</span><span class="stat-btn-count">0</span></button>
+      </div>
+      <div class="stat-control">
+        <button type="button" class="stat-btn-minus" data-stat="ftm" data-delta="-1" aria-label="Subtract Free Throw Made">&minus;</button>
+        <button type="button" class="stat-btn" data-stat="ftm" data-delta="1"><span class="stat-btn-label">Free Throw Made</span><span class="stat-btn-count">0</span></button>
+      </div>
+      <div class="stat-control">
+        <button type="button" class="stat-btn-minus" data-stat="offRebounds" data-delta="-1" aria-label="Subtract Off Rebounds">&minus;</button>
+        <button type="button" class="stat-btn" data-stat="offRebounds" data-delta="1"><span class="stat-btn-label">Off Rebounds</span><span class="stat-btn-count">0</span></button>
+      </div>
+      <div class="stat-control">
+        <button type="button" class="stat-btn-minus" data-stat="defRebounds" data-delta="-1" aria-label="Subtract Def Rebounds">&minus;</button>
+        <button type="button" class="stat-btn" data-stat="defRebounds" data-delta="1"><span class="stat-btn-label">Def Rebounds</span><span class="stat-btn-count">0</span></button>
+      </div>
+      <div class="stat-control">
+        <button type="button" class="stat-btn-minus" data-stat="assists" data-delta="-1" aria-label="Subtract Assists">&minus;</button>
+        <button type="button" class="stat-btn" data-stat="assists" data-delta="1"><span class="stat-btn-label">Assists</span><span class="stat-btn-count">0</span></button>
+      </div>
+      <div class="stat-control">
+        <button type="button" class="stat-btn-minus" data-stat="steals" data-delta="-1" aria-label="Subtract Steals">&minus;</button>
+        <button type="button" class="stat-btn" data-stat="steals" data-delta="1"><span class="stat-btn-label">Steals</span><span class="stat-btn-count">0</span></button>
+      </div>
+      <div class="stat-control">
+        <button type="button" class="stat-btn-minus" data-stat="blocks" data-delta="-1" aria-label="Subtract Blocks">&minus;</button>
+        <button type="button" class="stat-btn" data-stat="blocks" data-delta="1"><span class="stat-btn-label">Blocks</span><span class="stat-btn-count">0</span></button>
+      </div>
+      <div class="stat-control">
+        <button type="button" class="stat-btn-minus" data-stat="turnovers" data-delta="-1" aria-label="Subtract Turnovers">&minus;</button>
+        <button type="button" class="stat-btn" data-stat="turnovers" data-delta="1"><span class="stat-btn-label">Turnovers</span><span class="stat-btn-count">0</span></button>
+      </div>
+      <div class="stat-control">
+        <button type="button" class="stat-btn-minus" data-stat="fouls" data-delta="-1" aria-label="Subtract Fouls">&minus;</button>
+        <button type="button" class="stat-btn" data-stat="fouls" data-delta="1"><span class="stat-btn-label">Fouls</span><span class="stat-btn-count">0</span></button>
+      </div>
       <button type="button" class="stat-btn stat-btn-derived" id="stat-total-points" disabled><span class="stat-btn-label">Total Points</span><span class="stat-btn-count">0</span></button>
     </div>
 

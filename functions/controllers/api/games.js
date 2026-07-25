@@ -142,10 +142,16 @@ router.get('/:gameId/box-score', requireAuth, async (req, res) => {
     }
 });
 
+// delta is restricted to +1/-1 (rather than accepting any integer) so a
+// single click can only ever nudge a stat one step - the minus button on
+// the Game page uses this to correct a mis-click.
+const ALLOWED_STAT_DELTAS = [1, -1];
+
 router.post('/:gameId/box-score', requireAuth, async (req, res) => {
     const gameId = Number(req.params.gameId);
     const playerName = typeof (req.body && req.body.playerName) === 'string' ? req.body.playerName.trim() : '';
     const stat = typeof (req.body && req.body.stat) === 'string' ? req.body.stat.trim() : '';
+    const delta = req.body && req.body.delta !== undefined ? Number(req.body.delta) : 1;
 
     if (!Number.isInteger(gameId)) {
         return res.status(400).json({ error: 'Invalid game id.' });
@@ -156,9 +162,12 @@ router.post('/:gameId/box-score', requireAuth, async (req, res) => {
     if (!LIVE_STAT_KEYS.includes(stat)) {
         return res.status(400).json({ error: 'Invalid stat.' });
     }
+    if (!ALLOWED_STAT_DELTAS.includes(delta)) {
+        return res.status(400).json({ error: 'Invalid delta.' });
+    }
 
     try {
-        const boxScore = await incrementPlayerBoxScoreStat(gameId, res.locals.user.id, playerName, stat);
+        const boxScore = await incrementPlayerBoxScoreStat(gameId, res.locals.user.id, playerName, stat, delta);
         if (!boxScore) {
             return res.status(404).json({ error: 'Game not found.' });
         }

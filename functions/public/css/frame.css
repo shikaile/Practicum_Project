@@ -647,6 +647,50 @@ textarea.feedback-input {
 	font-size: 14px;
 }
 
+/* Rename/Remove controls on each roster row (views/pages/participate.ejs). */
+.team-list-item-actions {
+	display: flex;
+	gap: 8px;
+	flex-shrink: 0;
+}
+
+.athlete-action-btn {
+	background: transparent;
+	border: 1px solid var(--cv-border);
+	color: var(--cv-text-muted);
+	padding: 4px 10px;
+	border-radius: 4px;
+	font-size: 12px;
+	font-weight: 600;
+	font-family: inherit;
+	cursor: pointer;
+	transition: all 0.15s ease-in-out;
+}
+
+.athlete-action-btn:hover {
+	border-color: var(--cv-accent);
+	color: var(--cv-text);
+}
+
+.athlete-action-btn-danger:hover {
+	border-color: var(--cv-danger);
+	color: var(--cv-danger);
+}
+
+.athlete-rename-form {
+	display: flex;
+	flex: 1;
+	gap: 8px;
+	align-items: center;
+}
+
+.athlete-rename-form input {
+	flex: 1;
+	min-width: 0;
+	padding: 6px 8px;
+	font-size: 14px;
+}
+
 .team-select-row {
 	display: flex;
 	flex-wrap: wrap;
@@ -870,6 +914,42 @@ textarea.feedback-input {
 
 .stat-btn-derived:hover {
 	border-color: var(--cv-border);
+}
+
+/* Pairs each stat button with a small minus button, so an erroneous click
+   can be corrected without resetting the whole game. */
+.stat-control {
+	display: flex;
+	align-items: stretch;
+	gap: 4px;
+}
+
+.stat-control .stat-btn {
+	flex: 1;
+}
+
+.stat-btn-minus {
+	width: 28px;
+	flex-shrink: 0;
+	background-color: var(--cv-bg);
+	color: var(--cv-text-muted);
+	border: 1px solid var(--cv-border);
+	border-radius: 6px;
+	font-family: inherit;
+	font-size: 16px;
+	font-weight: 700;
+	line-height: 1;
+	cursor: pointer;
+	transition: all 0.15s ease-in-out;
+}
+
+.stat-btn-minus:hover {
+	border-color: var(--cv-danger);
+	color: var(--cv-danger);
+}
+
+.stat-btn-minus:active {
+	background-color: rgba(255, 51, 51, 0.15);
 }
 
 .stat-status {

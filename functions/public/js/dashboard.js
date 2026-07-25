@@ -31,6 +31,68 @@ function switchIngestMode(mode) {
 document.getElementById("tab-csv-btn").addEventListener("click", () => switchIngestMode('csv'));
 document.getElementById("tab-manual-btn").addEventListener("click", () => switchIngestMode('manual'));
 
+// CSV format selector (Individual Athlete Stats vs Team Stats) - matches the
+// two ingestion scripts a contributor provided (public/py/*_ingestion.py)
+// and the advanced-metrics schema ported from their archetec.sql (see
+// models/database.js's game_records/players/player_stats/game_stats
+// tables). Whichever button is active determines how the file picker below
+// parses and ingests the CSV (see the file-picker change handler).
+const csvTypeIndividualBtn = document.getElementById("csv-type-individual-btn");
+const csvTypeTeamBtn = document.getElementById("csv-type-team-btn");
+let selectedCsvType = "individual";
+
+function setCsvType(type) {
+    selectedCsvType = type;
+    csvTypeIndividualBtn.classList.toggle("active", type === "individual");
+    csvTypeTeamBtn.classList.toggle("active", type === "team");
+}
+
+csvTypeIndividualBtn.addEventListener("click", () => setCsvType("individual"));
+csvTypeTeamBtn.addEventListener("click", () => setCsvType("team"));
+
+// MY_TEAM_NAME in the original ingestion scripts was a hardcoded config
+// constant at the top of the file; here it's just remembered in
+// localStorage between uploads so the coach doesn't have to retype it.
+const MY_TEAM_NAME_STORAGE_KEY = "dsPracticumMyTeamName";
+const myTeamNameInput = document.getElementById("my-team-name-input");
+(function restoreMyTeamName() {
+    try {
+        const stored = window.localStorage.getItem(MY_TEAM_NAME_STORAGE_KEY);
+        if (stored) myTeamNameInput.value = stored;
+    } catch (e) {
+        // localStorage unavailable (private browsing, etc.) - no-op.
+    }
+})();
+myTeamNameInput.addEventListener("change", () => {
+    try {
+        window.localStorage.setItem(MY_TEAM_NAME_STORAGE_KEY, myTeamNameInput.value.trim());
+    } catch (e) {
+        // no-op
+    }
+});
+
+// Parses the "YYYY-M-D_TeamA_vs_TeamB..." filename convention both
+// ingestion scripts relied on (month is zero-indexed, matching the
+// scripts' `int(month_zero_indexed) + 1`).
+function parseGameFilename(filename) {
+    const match = filename.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[ _](.+?)[ _]vs[ _](.+?)[ _]/);
+    if (!match) return null;
+
+    const [, year, monthZeroIndexed, day, teamA, teamB] = match;
+    const gameMonth = parseInt(monthZeroIndexed, 10) + 1;
+    const gameDate = `${year}-${String(gameMonth).padStart(2, "0")}-${String(parseInt(day, 10)).padStart(2, "0")}`;
+
+    return { gameDate, teamA, teamB };
+}
+
+function mapRowColumns(row, columnMap) {
+    const mapped = {};
+    Object.keys(columnMap).forEach((csvCol) => {
+        mapped[columnMap[csvCol]] = row[csvCol];
+    });
+    return mapped;
+}
+
 document.getElementById("csv-file-picker").addEventListener("change", (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -43,68 +105,219 @@ document.getElementById("csv-file-picker").addEventListener("change", (event) =>
         dynamicTyping: true,
         skipEmptyLines: true,
         complete: function (results) {
-            processAndUploadStats(results.data, file.name);
+            if (selectedCsvType === "team") {
+                processTeamStatsCsv(results.data, file.name);
+            } else {
+                processIndividualAthleteCsv(results.data, file.name);
+            }
         }
     });
 });
 
-// Pipeline parsing with fault-tolerant header variations matching tracking formats
-async function processAndUploadStats(rows, filename) {
+// Team Stats CSV - mirrors public/py/gameStats_ingestion.py: one row each
+// for "my" team and the opponent (told apart by the "Team" column matching
+// My Team Name above), keyed to a game by date + opponent parsed from the
+// filename.
+const GAME_STATS_COLUMN_MAP = {
+    "Points": "points",
+    "1": "q1_points",
+    "2": "q2_points",
+    "3": "q3_points",
+    "4": "q4_points",
+    "OT": "ot_points",
+    "FG Made": "fgm",
+    "FG Attempts": "fga",
+    "FG%": "fg_pct",
+    "3FG Made": "tpm",
+    "3FG Att": "tpa",
+    "3FG%": "tp_pct",
+    "FT Made": "ftm",
+    "FT Att": "fta",
+    "FT%": "ft_pct",
+    "Offensive Rebounds": "off_rebounds",
+    "Defensive Rebounds": "def_rebounds",
+    "Rebounds": "rebounds",
+    "Assists": "assists",
+    "Steals": "steals",
+    "Blocks": "blocks",
+    "Turnovers": "turnovers",
+    "Fouls": "fouls",
+    "True Shooting%": "ts_pct",
+    "Effective Field Goal%": "efg_pct",
+    "Offensive Rebounding%": "oreb_pct",
+    "Defensive Rebounding%": "dreb_pct",
+    "AST-TO Ratio": "ast_to_ratio",
+    "Turnover%": "to_pct",
+    "Off Rating": "off_rating",
+    "Def Rating": "def_rating",
+};
+
+async function processTeamStatsCsv(rows, filename) {
+    const status = document.getElementById("upload-status");
+    const myTeamName = myTeamNameInput.value.trim();
+
+    if (!myTeamName) {
+        status.innerHTML = `<span style="color: #ff3333;">Enter your team name above before uploading a Team Stats CSV.</span>`;
+        return;
+    }
+
+    const parsed = parseGameFilename(filename);
+    if (!parsed) {
+        status.innerHTML = `<span style="color: #ff3333;">Filename must match the pattern YYYY-M-D_TeamA_vs_TeamB... (e.g. 2026-1-9_Allen Park_vs_Melvindale.csv).</span>`;
+        return;
+    }
+
+    const { gameDate, teamA, teamB } = parsed;
+    let opponent, location;
+    if (teamA === myTeamName) {
+        location = "Away";
+        opponent = teamB;
+    } else if (teamB === myTeamName) {
+        location = "Home";
+        opponent = teamA;
+    } else {
+        status.innerHTML = `<span style="color: #ff3333;">"${myTeamName}" wasn't found in the filename matchup (${teamA} vs ${teamB}).</span>`;
+        return;
+    }
+
+    let teamRow = null;
+    let opponentRow = null;
+    rows.forEach((row) => {
+        const mapped = mapRowColumns(row, GAME_STATS_COLUMN_MAP);
+        if (row["Team"] === myTeamName) {
+            teamRow = mapped;
+        } else {
+            opponentRow = mapped;
+        }
+    });
+
+    if (!teamRow || !opponentRow) {
+        status.innerHTML = `<span style="color: #ff3333;">Couldn't find both team rows - check the CSV's "Team" column values.</span>`;
+        return;
+    }
+
     try {
-        const players = [];
-
-        rows.forEach((row) => {
-            const playerKey = Object.keys(row).find(k => k.trim().toLowerCase() === 'player');
-            const playerVal = playerKey ? row[playerKey] : null;
-
-            if (!playerVal || playerVal.toString().toLowerCase().includes("total")) return;
-
-            const getVal = (headerName) => {
-                const key = Object.keys(row).find(k => k.trim().toLowerCase() === headerName.toLowerCase());
-                return key ? row[key] : 0;
-            };
-
-            const fgm = getVal('fgm');
-            const fga = getVal('fga');
-            const tpm = getVal('3pm') || getVal('3ptm') || 0;
-
-            players.push({
-                playerName: playerVal.toString().trim(),
-                minutes: getVal('mp') || getVal('min') || 0,
-                points: getVal('pts') || getVal('points') || 0,
-                assists: getVal('ast') || getVal('assist') || 0,
-                rebounds: getVal('reb') || getVal('rebounds') || 0,
-                steals: getVal('stl') || getVal('stls') || 0,
-                blocks: getVal('blk') || getVal('blks') || 0,
-                turnovers: getVal('to') || getVal('tov') || 0,
-                fgm: fgm,
-                fga: fga,
-                tpm: tpm,
-            });
+        const response = await fetch('/api/advanced-stats/game', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ gameDate, opponent, location, teamStats: teamRow, opponentStats: opponentRow }),
         });
+        const data = await response.json();
 
-        if (players.length === 0) {
-            document.getElementById("upload-status").innerHTML =
-                `<span style="color: #ffcc00;">Warning: Found 0 players. Verify CSV headers.</span>`;
+        if (!response.ok) {
+            status.innerHTML = `<span style="color: #ff3333;">${data.error || 'Something went wrong ingesting team stats.'}</span>`;
             return;
         }
 
-        const result = await postGame(filename, players);
-
-        if (!result.ok) {
-            document.getElementById("upload-status").innerHTML =
-                `<span style="color: #ff3333;">Pipeline Ingestion Failure: ${result.error}</span>`;
-            return;
-        }
-
-        document.getElementById("upload-status").innerHTML =
-            `<span style="color: #00ff66;">Engine Success: Parsed and stored records for ${players.length} players.</span>`;
-
-        loadSeasonAnalytics();
+        status.innerHTML = `<span style="color: #4ade80;">Team Stats ingested for game vs ${opponent} (${gameDate}).</span>`;
     } catch (error) {
-        console.error("Game upload processing error:", error);
-        document.getElementById("upload-status").innerHTML =
-            `<span style="color: #ff3333;">Pipeline Ingestion Failure: ${error.message}</span>`;
+        console.error("Team stats ingestion error:", error);
+        status.innerHTML = `<span style="color: #ff3333;">Something went wrong ingesting team stats.</span>`;
+    }
+}
+
+// Individual Athlete Stats CSV - mirrors public/py/playerStats_ingestion.py:
+// per-player rows attached to a game that must already exist (the Team
+// Stats CSV for this game needs to be uploaded first), same ordering
+// dependency as the original scripts.
+const PLAYER_STATS_COLUMN_MAP = {
+    "Basic:PTS": "points",
+    "Basic:FGM": "fgm",
+    "Basic:FGA": "fga",
+    "Basic:FG%": "fg_pct",
+    "Basic:3FGM": "tpm",
+    "Basic:3FGA": "tpa",
+    "Basic:3FG%": "tp_pct",
+    "Basic:FTM": "ftm",
+    "Basic:FTA": "fta",
+    "Basic:FT%": "ft_pct",
+    "Basic:ORB": "off_rebounds",
+    "Basic:DRB": "def_rebounds",
+    "Basic:TRB": "rebounds",
+    "Basic:AST": "assists",
+    "Basic:STL": "steals",
+    "Basic:BLK": "blocks",
+    "Basic:TO": "turnovers",
+    "Basic:PF": "fouls",
+    "Advanced:ORB%": "oreb_pct",
+    "Advanced:DRB%": "dreb_pct",
+    "Advanced:TRB%": "treb_pct",
+    "Advanced:AST%": "ast_pct",
+    "Advanced:AST/TO": "ast_to_ratio",
+    "Advanced:TO-Ratio": "to_ratio",
+    "Advanced:USG%": "usg_pct",
+    "Advanced:Ch.-Drawn": "charges_drawn",
+    "Shooting:TS%": "ts_pct",
+    "Shooting:eFG%": "efg_pct",
+};
+
+// "MM:SS" -> total seconds.
+function mpToSeconds(mpStr) {
+    const parts = String(mpStr).split(":");
+    if (parts.length !== 2) return null;
+    const minutes = parseInt(parts[0], 10);
+    const seconds = parseInt(parts[1], 10);
+    return Number.isNaN(minutes) || Number.isNaN(seconds) ? null : minutes * 60 + seconds;
+}
+
+// Strips a leading apostrophe some spreadsheet tools add to force a
+// negative-looking number to stay text (e.g. "'-5").
+function cleanPlusMinus(value) {
+    const parsed = parseInt(String(value).replace(/^'/, ""), 10);
+    return Number.isNaN(parsed) ? null : parsed;
+}
+
+async function processIndividualAthleteCsv(rows, filename) {
+    const status = document.getElementById("upload-status");
+    const myTeamName = myTeamNameInput.value.trim();
+
+    if (!myTeamName) {
+        status.innerHTML = `<span style="color: #ff3333;">Enter your team name above before uploading an Individual Athlete Stats CSV.</span>`;
+        return;
+    }
+
+    const parsed = parseGameFilename(filename);
+    if (!parsed) {
+        status.innerHTML = `<span style="color: #ff3333;">Filename must match the pattern YYYY-M-D_TeamA_vs_TeamB... (e.g. 2026-0-21_Melvindale_vs_Romulus.csv).</span>`;
+        return;
+    }
+
+    const { gameDate, teamA, teamB } = parsed;
+    const opponent = teamA === myTeamName ? teamB : teamA;
+
+    // The opponent's players show up in the same export, auto-named
+    // "{Opponent}_# Player" - filter those out, same as the Python script.
+    const myPlayerRows = rows.filter((row) => !String(row["Athlete"] || "").startsWith(`${opponent}_`));
+
+    if (myPlayerRows.length === 0) {
+        status.innerHTML = `<span style="color: #ffcc00;">Warning: found 0 player rows after filtering out the opponent. Verify the CSV's "Athlete" column.</span>`;
+        return;
+    }
+
+    const players = myPlayerRows.map((row) => {
+        const stats = mapRowColumns(row, PLAYER_STATS_COLUMN_MAP);
+        stats.mp = mpToSeconds(row["Basic:MP"]);
+        stats.plus_minus = cleanPlusMinus(row["Advanced:+/-"]);
+        return { name: row["Athlete"], playerNumber: Number(row["#"]), stats };
+    });
+
+    try {
+        const response = await fetch('/api/advanced-stats/players', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ gameDate, opponent, players }),
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+            status.innerHTML = `<span style="color: #ff3333;">${data.error || 'Something went wrong ingesting player stats.'}</span>`;
+            return;
+        }
+
+        status.innerHTML = `<span style="color: #4ade80;">Ingested stats for ${players.length} player(s) vs ${opponent} (${gameDate}).</span>`;
+    } catch (error) {
+        console.error("Player stats ingestion error:", error);
+        status.innerHTML = `<span style="color: #ff3333;">Something went wrong ingesting player stats.</span>`;
     }
 }
 

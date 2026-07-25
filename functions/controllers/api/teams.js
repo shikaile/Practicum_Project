@@ -5,6 +5,8 @@ const {
     getTeamOwnedByUser,
     addAthlete,
     getAthletesForTeam,
+    renameAthlete,
+    deleteAthlete,
 } = require('../../models/database');
 
 // Only basketball is active for team creation right now - other sports are
@@ -106,6 +108,52 @@ router.post('/:teamId/athletes', requireAuth, async (req, res) => {
     } catch (err) {
         console.error('Failed to add athlete:', err.message);
         res.status(500).json({ error: 'Something went wrong adding the athlete.' });
+    }
+});
+
+// Renames an athlete already on the roster (e.g. to fix a typo).
+router.patch('/:teamId/athletes/:athleteId', requireAuth, async (req, res) => {
+    const teamId = Number(req.params.teamId);
+    const athleteId = Number(req.params.athleteId);
+    const name = typeof (req.body && req.body.name) === 'string' ? req.body.name.trim() : '';
+
+    if (!Number.isInteger(teamId) || !Number.isInteger(athleteId)) {
+        return res.status(400).json({ error: 'Invalid team or athlete id.' });
+    }
+    if (!name || name.length > MAX_ATHLETE_NAME_LENGTH) {
+        return res.status(400).json({ error: 'Please enter a valid athlete name.' });
+    }
+
+    try {
+        const athlete = await renameAthlete(res.locals.user.id, teamId, athleteId, name);
+        if (!athlete) {
+            return res.status(404).json({ error: 'Athlete not found.' });
+        }
+        res.json({ athlete });
+    } catch (err) {
+        console.error('Failed to rename athlete:', err.message);
+        res.status(500).json({ error: 'Something went wrong renaming the athlete.' });
+    }
+});
+
+// Removes an athlete from the roster (e.g. added by mistake).
+router.delete('/:teamId/athletes/:athleteId', requireAuth, async (req, res) => {
+    const teamId = Number(req.params.teamId);
+    const athleteId = Number(req.params.athleteId);
+
+    if (!Number.isInteger(teamId) || !Number.isInteger(athleteId)) {
+        return res.status(400).json({ error: 'Invalid team or athlete id.' });
+    }
+
+    try {
+        const deleted = await deleteAthlete(res.locals.user.id, teamId, athleteId);
+        if (!deleted) {
+            return res.status(404).json({ error: 'Athlete not found.' });
+        }
+        res.status(204).end();
+    } catch (err) {
+        console.error('Failed to delete athlete:', err.message);
+        res.status(500).json({ error: 'Something went wrong deleting the athlete.' });
     }
 });
 

@@ -253,6 +253,115 @@ function initTeams() {
 		selectedTeamId = null;
 	}
 
+	// Swaps an athlete's name span for an inline rename form. Only one row
+	// can be mid-edit at a time per item (guarded by the existing-form check).
+	function startAthleteRename(item, nameEl, actionsEl, athlete) {
+		if (item.querySelector('.athlete-rename-form')) return;
+
+		var form = document.createElement('form');
+		form.className = 'athlete-rename-form';
+
+		var input = document.createElement('input');
+		input.type = 'text';
+		input.className = 'feedback-input';
+		input.maxLength = 100;
+		input.value = athlete.name;
+		input.required = true;
+
+		var saveBtn = document.createElement('button');
+		saveBtn.type = 'submit';
+		saveBtn.className = 'athlete-action-btn';
+		saveBtn.textContent = 'Save';
+
+		var cancelBtn = document.createElement('button');
+		cancelBtn.type = 'button';
+		cancelBtn.className = 'athlete-action-btn';
+		cancelBtn.textContent = 'Cancel';
+
+		form.appendChild(input);
+		form.appendChild(saveBtn);
+		form.appendChild(cancelBtn);
+
+		nameEl.replaceWith(form);
+		actionsEl.hidden = true;
+		input.focus();
+		input.select();
+
+		function exitEditMode(newName) {
+			if (typeof newName === 'string') {
+				nameEl.textContent = newName;
+				athlete.name = newName;
+			}
+			form.replaceWith(nameEl);
+			actionsEl.hidden = false;
+		}
+
+		cancelBtn.addEventListener('click', function () {
+			exitEditMode();
+		});
+
+		form.addEventListener('submit', function (event) {
+			event.preventDefault();
+			var newName = input.value.trim();
+
+			if (!newName) return;
+			if (newName === athlete.name) {
+				exitEditMode();
+				return;
+			}
+
+			saveBtn.disabled = true;
+			cancelBtn.disabled = true;
+
+			fetch('/api/teams/' + selectedTeamId + '/athletes/' + athlete.id, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ name: newName }),
+			})
+				.then(function (response) {
+					return response.json().then(function (data) {
+						return { ok: response.ok, data: data };
+					});
+				})
+				.then(function (result) {
+					if (!result.ok) {
+						saveBtn.disabled = false;
+						cancelBtn.disabled = false;
+						alert(result.data.error || 'Something went wrong renaming the athlete.');
+						return;
+					}
+					exitEditMode(result.data.athlete.name);
+				})
+				.catch(function () {
+					saveBtn.disabled = false;
+					cancelBtn.disabled = false;
+					alert('Something went wrong renaming the athlete.');
+				});
+		});
+	}
+
+	function removeAthlete(item, athlete) {
+		if (!confirm('Remove ' + athlete.name + ' from the roster?')) return;
+
+		fetch('/api/teams/' + selectedTeamId + '/athletes/' + athlete.id, { method: 'DELETE' })
+			.then(function (response) {
+				if (!response.ok && response.status !== 404) {
+					throw new Error('Delete failed with status ' + response.status);
+				}
+				item.remove();
+
+				if (!rosterList.querySelector('.team-list-item')) {
+					var empty = document.createElement('li');
+					empty.className = 'team-list-empty';
+					empty.textContent = 'No athletes yet.';
+					rosterList.appendChild(empty);
+				}
+			})
+			.catch(function () {
+				alert('Something went wrong removing the athlete.');
+			});
+	}
+
 	function buildAthleteListItem(athlete) {
 		var item = document.createElement('li');
 		item.className = 'team-list-item';
@@ -261,7 +370,33 @@ function initTeams() {
 		name.className = 'team-list-item-name';
 		name.textContent = athlete.name;
 
+		var actions = document.createElement('span');
+		actions.className = 'team-list-item-actions';
+
+		var renameBtn = document.createElement('button');
+		renameBtn.type = 'button';
+		renameBtn.className = 'athlete-action-btn';
+		renameBtn.textContent = 'Rename';
+
+		var removeBtn = document.createElement('button');
+		removeBtn.type = 'button';
+		removeBtn.className = 'athlete-action-btn athlete-action-btn-danger';
+		removeBtn.textContent = 'Remove';
+
+		actions.appendChild(renameBtn);
+		actions.appendChild(removeBtn);
+
 		item.appendChild(name);
+		item.appendChild(actions);
+
+		renameBtn.addEventListener('click', function () {
+			startAthleteRename(item, name, actions, athlete);
+		});
+
+		removeBtn.addEventListener('click', function () {
+			removeAthlete(item, athlete);
+		});
+
 		return item;
 	}
 
@@ -770,7 +905,10 @@ function selectAthlete(playerName, itemEl) {
 // progress, or starts a new one (labeled with both teams' names) on the
 // first click otherwise.
 function initStatButtons() {
-	var buttons = document.querySelectorAll('.stat-btn[data-stat]');
+	// Each stat has two controls sharing the same data-stat: the main
+	// .stat-btn (data-delta="1") and a small .stat-btn-minus (data-delta="-1")
+	// to correct a mis-click without resetting the whole game.
+	var buttons = document.querySelectorAll('.stat-btn[data-stat], .stat-btn-minus[data-stat]');
 	if (!buttons.length) return;
 
 	if (gameTrackingState.gameId) {
@@ -801,11 +939,11 @@ function initStatButtons() {
 			});
 	}
 
-	function postStat(gameId, playerName, stat) {
+	function postStat(gameId, playerName, stat, delta) {
 		return fetch('/api/games/' + gameId + '/box-score', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ playerName: playerName, stat: stat }),
+			body: JSON.stringify({ playerName: playerName, stat: stat, delta: delta }),
 		}).then(function (response) {
 			return response.json().then(function (data) {
 				return { status: response.status, data: data };
@@ -824,9 +962,10 @@ function initStatButtons() {
 
 			var playerName = gameTrackingState.selectedPlayerName;
 			var stat = btn.dataset.stat;
+			var delta = btn.dataset.delta ? parseInt(btn.dataset.delta, 10) : 1;
 
 			ensureGameStarted()
-				.then(function (gameId) { return postStat(gameId, playerName, stat); })
+				.then(function (gameId) { return postStat(gameId, playerName, stat, delta); })
 				.then(function (result) {
 					if (result.status === 404) {
 						// The persisted game no longer exists (e.g. deleted from
@@ -835,7 +974,7 @@ function initStatButtons() {
 						gameTrackingState.gameId = null;
 						clearStoredGameId();
 						return ensureGameStarted().then(function (gameId) {
-							return postStat(gameId, playerName, stat);
+							return postStat(gameId, playerName, stat, delta);
 						});
 					}
 					return result;

@@ -156,6 +156,34 @@
         border-bottom-color: #ff6600;
     }
 
+    .dashboard-page .csv-type-toggle {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+    .dashboard-page .csv-type-btn {
+        flex: 1;
+        background: transparent;
+        border: 1px solid #283141;
+        color: #9aa5b5;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        font-family: inherit;
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+    }
+    .dashboard-page .csv-type-btn:hover {
+        border-color: #ff6600;
+        color: #ffffff;
+    }
+    .dashboard-page .csv-type-btn.active {
+        background: rgba(255, 102, 0, 0.12);
+        border-color: #ff6600;
+        color: #ff6600;
+    }
+
     .dashboard-page .upload-btn-wrapper {
         position: relative;
         overflow: hidden;
@@ -253,6 +281,25 @@
                 <!-- CSV Upload Wrapper Block -->
                 <div id="wrapper-csv-ingest">
                     <p>Select and upload a raw single-game box score CSV data file to trigger immediate real-time trend pipeline updates.</p>
+
+                    <!-- CSV format selector - matches the two ingestion scripts a
+                         contributor provided (public/py/playerStats_ingestion.py,
+                         gameStats_ingestion.py) and the advanced-metrics schema
+                         ported from their archetec.sql (see models/database.js's
+                         game_records/players/player_stats/game_stats tables). -->
+                    <div class="csv-type-toggle">
+                        <button type="button" class="csv-type-btn active" id="csv-type-individual-btn">Individual Athlete Stats</button>
+                        <button type="button" class="csv-type-btn" id="csv-type-team-btn">Team Stats</button>
+                    </div>
+
+                    <!-- MY_TEAM_NAME in the original ingestion scripts was a
+                         hardcoded config constant; here it's just remembered
+                         in localStorage between uploads (see dashboard.js). -->
+                    <div class="form-field" style="margin-bottom: 15px;">
+                        <label for="my-team-name-input">My Team Name (must match the CSV filename)</label>
+                        <input type="text" id="my-team-name-input" placeholder="e.g. Melvindale" maxlength="200">
+                    </div>
+
                     <div class="upload-btn-wrapper">
                         <button class="btn">+ Drag &amp; Drop or Click to Select Box Score CSV data file</button>
                         <input type="file" id="csv-file-picker" accept=".csv" />
