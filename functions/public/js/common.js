@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', function () {
 	initGameClock();
 	initQuarterToggles();
 	initStatButtons();
+	initEndRecordGame();
 });
 
 // Clicking an archive thumbnail opens the full, uncropped original image in
@@ -593,53 +594,23 @@ function initTeams() {
 	});
 }
 
-// The in-progress game's id is persisted in localStorage so reloading (or
-// closing and reopening) the Game page resumes logging stats onto the same
-// game instead of silently starting a new one each time.
-var GAME_ID_STORAGE_KEY = 'dsPracticumCurrentGameId';
-
-function getStoredGameId() {
-	try {
-		var stored = window.localStorage.getItem(GAME_ID_STORAGE_KEY);
-		var parsed = stored ? parseInt(stored, 10) : NaN;
-		return Number.isInteger(parsed) ? parsed : null;
-	} catch (e) {
-		return null;
-	}
-}
-
-function storeGameId(gameId) {
-	try {
-		window.localStorage.setItem(GAME_ID_STORAGE_KEY, String(gameId));
-	} catch (e) {
-		// localStorage unavailable (private browsing, etc.) - no-op, same as
-		// initWelcomeModal's handling elsewhere in this file.
-	}
-}
-
-function clearStoredGameId() {
-	try {
-		window.localStorage.removeItem(GAME_ID_STORAGE_KEY);
-	} catch (e) {
-		// no-op
-	}
-}
-
-// Shared state for the Game page's live stat-logging flow: which team each
-// matchup side picked (used to label the game if a new one needs to be
-// started), which athlete is currently selected, and the game itself -
-// resumed from localStorage if one was already in progress.
+// Shared state for the Game page's live stat-logging flow. Everything here
+// is purely client-side and in-memory - nothing is sent to the database
+// until the coach clicks "End/Record Game" and confirms (see
+// initEndRecordGame below). playerStatsByName accumulates each selected
+// athlete's stat-button clicks locally; selecting an athlete just reads
+// from this map instead of the server.
 var gameTrackingState = {
-	teamNameBySide: [null, null],
-	gameId: getStoredGameId(),
+	teamName: null,
 	selectedPlayerName: null,
 	selectedItemEl: null,
+	playerStatsByName: {},
 };
 
-// Two independent "Add Team" pickers on the Game page (left/right side of a
-// matchup). Each lets the user pick one of their teams and then shows that
-// team's roster. Only present when a logged-in user is viewing the page
-// (see views/pages/projects.ejs).
+// Only one team can be tracked per game on this page (see
+// views/pages/projects.ejs, which now renders a single .matchup-side).
+// Lets the user pick one of their teams and then shows that team's roster.
+// Only present when a logged-in user is viewing the page.
 function initGamePage() {
 	var sides = document.querySelectorAll('.matchup-side');
 	if (!sides.length) return;
@@ -649,12 +620,12 @@ function initGamePage() {
 		.then(function (data) { return data.teams || []; })
 		.catch(function () { return null; });
 
-	sides.forEach(function (side, index) {
-		initGameSide(side, teamsPromise, index);
+	sides.forEach(function (side) {
+		initGameSide(side, teamsPromise);
 	});
 }
 
-function initGameSide(side, teamsPromise, sideIndex) {
+function initGameSide(side, teamsPromise) {
 	var addBtn = side.querySelector('.game-add-team-btn');
 	var picker = side.querySelector('.game-team-picker');
 	var rosterBox = side.querySelector('.game-roster');
@@ -670,7 +641,7 @@ function initGameSide(side, teamsPromise, sideIndex) {
 		picker.hidden = true;
 		rosterTitle.textContent = team.name + ' (' + team.sport + ' • ' + team.season + ')';
 		rosterBox.hidden = false;
-		gameTrackingState.teamNameBySide[sideIndex] = team.name;
+		gameTrackingState.teamName = team.name;
 		loadGameRoster(team.id, rosterList);
 	}
 
@@ -774,6 +745,56 @@ function loadGameRoster(teamId, rosterList) {
 
 // 8-minute start/stop game clock on the Game page. Purely client-side (no
 // persistence) - resets to 08:00 on page reload.
+// Set by initGameClock so clearGameFields (after a successful "End/Record
+// Game") can stop and reset the clock without restructuring its closures.
+var gameClockControls = null;
+
+// Q1-Q4 quarter buttons - only one is ever active at a time (a game is in
+// exactly one quarter), shared by manual clicks (initQuarterToggles) and
+// the game clock's automatic advance-on-expire (initGameClock).
+var QUARTER_SEQUENCE = ['Q1', 'Q2', 'Q3', 'Q4'];
+
+function setActiveQuarter(quarterKey) {
+	document.querySelectorAll('.quarter-btn').forEach(function (btn) {
+		btn.classList.toggle('active', btn.dataset.quarter === quarterKey);
+	});
+}
+
+function getActiveQuarter() {
+	var activeBtn = document.querySelector('.quarter-btn.active');
+	return activeBtn ? activeBtn.dataset.quarter : null;
+}
+
+// Moves to the next quarter in sequence. No-op past Q4 - the clock just
+// stays reset and stopped, waiting for the coach to start it again.
+function advanceToNextQuarter() {
+	var currentIndex = QUARTER_SEQUENCE.indexOf(getActiveQuarter());
+	var nextIndex = currentIndex + 1;
+	if (nextIndex < QUARTER_SEQUENCE.length) {
+		setActiveQuarter(QUARTER_SEQUENCE[nextIndex]);
+	}
+}
+
+// Q1-Q4 quarter buttons on the Game page - clicking one selects it (and
+// deselects the rest); clicking the already-active one clears the
+// selection. No persistence.
+function initQuarterToggles() {
+	var buttons = document.querySelectorAll('.quarter-btn');
+	if (!buttons.length) return;
+
+	buttons.forEach(function (btn) {
+		btn.addEventListener('click', function () {
+			var isActive = btn.classList.contains('active');
+			setActiveQuarter(isActive ? null : btn.dataset.quarter);
+		});
+	});
+}
+
+// 8-minute quarter clock. Can be paused and resumed without losing the
+// remaining time. Starting it from a fresh 08:00 with no quarter selected
+// yet activates Q1; each time it counts down to 0:00 it resets to 08:00
+// and automatically advances to the next quarter (Q2, then Q3, then Q4),
+// stopped and waiting for the coach to start it again.
 function initGameClock() {
 	var display = document.getElementById('game-clock-display');
 	var toggleBtn = document.getElementById('game-clock-toggle');
@@ -793,11 +814,25 @@ function initGameClock() {
 		display.textContent = formatTime(remainingSeconds);
 	}
 
-	function stop() {
+	// Pauses without resetting - the remaining time is kept, so clicking
+	// the button again resumes the countdown instead of restarting it.
+	function pause() {
 		if (intervalId) {
 			clearInterval(intervalId);
 			intervalId = null;
 		}
+		toggleBtn.textContent = remainingSeconds === START_SECONDS ? 'Start' : 'Resume';
+		toggleBtn.classList.remove('active');
+	}
+
+	// Called when the countdown runs out on its own (not a manual pause) -
+	// advances the quarter and resets the clock for the next one.
+	function handleExpired() {
+		clearInterval(intervalId);
+		intervalId = null;
+		advanceToNextQuarter();
+		remainingSeconds = START_SECONDS;
+		render();
 		toggleBtn.textContent = 'Start';
 		toggleBtn.classList.remove('active');
 	}
@@ -805,60 +840,64 @@ function initGameClock() {
 	function start() {
 		if (intervalId || remainingSeconds <= 0) return;
 
+		// First-ever start of the game (fresh clock, no quarter picked yet)
+		// - later quarters get activated automatically by handleExpired.
+		if (!getActiveQuarter()) {
+			setActiveQuarter('Q1');
+		}
+
 		intervalId = setInterval(function () {
 			remainingSeconds -= 1;
 			render();
-			if (remainingSeconds <= 0) stop();
+			if (remainingSeconds <= 0) handleExpired();
 		}, 1000);
 
-		toggleBtn.textContent = 'Stop';
+		toggleBtn.textContent = 'Pause';
 		toggleBtn.classList.add('active');
+	}
+
+	function reset() {
+		pause();
+		remainingSeconds = START_SECONDS;
+		render();
+		toggleBtn.textContent = 'Start';
 	}
 
 	toggleBtn.addEventListener('click', function () {
 		if (intervalId) {
-			stop();
+			pause();
 		} else {
 			start();
 		}
 	});
 
 	render();
+	gameClockControls = { reset: reset };
 }
 
-// Q1-Q4 quarter buttons on the Game page - each toggles independently
-// on/off, no persistence.
-function initQuarterToggles() {
-	var buttons = document.querySelectorAll('.quarter-btn');
-	if (!buttons.length) return;
-
-	buttons.forEach(function (btn) {
-		btn.addEventListener('click', function () {
-			btn.classList.toggle('active');
-		});
-	});
-}
-
-// Writes a player's box score (or all zeros, if null) onto the stat
-// buttons' displayed counts, including the derived Total Points button.
-function applyBoxScoreToButtons(boxScore) {
+// Writes a player's locally-tracked stats (or all zeros, if null) onto the
+// stat buttons' displayed counts, including the derived Total Points
+// button (computed here, since nothing is sent to - or computed by - the
+// server until "End/Record Game" is confirmed).
+function applyBoxScoreToButtons(stats) {
 	document.querySelectorAll('.stat-btn[data-stat]').forEach(function (btn) {
 		var countEl = btn.querySelector('.stat-btn-count');
 		if (!countEl) return;
-		var value = boxScore ? boxScore[btn.dataset.stat] : 0;
+		var value = stats ? stats[btn.dataset.stat] : 0;
 		countEl.textContent = String(typeof value === 'number' ? value : 0);
 	});
 
 	var totalBtn = document.getElementById('stat-total-points');
 	if (totalBtn) {
 		var totalCount = totalBtn.querySelector('.stat-btn-count');
-		if (totalCount) totalCount.textContent = String(boxScore ? boxScore.points : 0);
+		var points = stats ? (stats.fgm || 0) * 2 + (stats.tpm || 0) * 3 + (stats.ftm || 0) : 0;
+		if (totalCount) totalCount.textContent = String(points);
 	}
 }
 
-// Selecting an athlete (from either team's roster) makes them the target of
-// the stat buttons below - clicking a stat button logs it to their box
-// score for the game currently being tracked on this page.
+// Selecting an athlete (from the team's roster) makes them the target of
+// the stat buttons below - clicking a stat button updates their entry in
+// gameTrackingState.playerStatsByName, purely in-memory.
 function selectAthlete(playerName, itemEl) {
 	if (gameTrackingState.selectedItemEl) {
 		gameTrackingState.selectedItemEl.classList.remove('selected');
@@ -867,89 +906,25 @@ function selectAthlete(playerName, itemEl) {
 	gameTrackingState.selectedItemEl = itemEl;
 	gameTrackingState.selectedPlayerName = playerName;
 
-	var status = document.getElementById('stat-status');
-
-	if (!gameTrackingState.gameId) {
-		applyBoxScoreToButtons(null);
-		if (status) status.textContent = 'Logging stats for: ' + playerName;
-		return;
+	if (!gameTrackingState.playerStatsByName[playerName]) {
+		gameTrackingState.playerStatsByName[playerName] = {};
 	}
+	applyBoxScoreToButtons(gameTrackingState.playerStatsByName[playerName]);
 
-	if (status) status.textContent = 'Loading ' + playerName + '’s stats…';
-
-	fetch('/api/games/' + gameTrackingState.gameId + '/box-score?playerName=' + encodeURIComponent(playerName))
-		.then(function (response) {
-			if (response.status === 404) {
-				// The resumed/persisted game no longer exists (e.g. deleted
-				// from the Dashboard) - drop it so the next stat click starts
-				// a fresh game instead of failing forever.
-				gameTrackingState.gameId = null;
-				clearStoredGameId();
-				return null;
-			}
-			return response.json().then(function (data) { return data.boxScore; });
-		})
-		.then(function (boxScore) {
-			applyBoxScoreToButtons(boxScore);
-			if (status) status.textContent = 'Logging stats for: ' + playerName;
-		})
-		.catch(function () {
-			applyBoxScoreToButtons(null);
-			if (status) status.textContent = 'Logging stats for: ' + playerName + ' (unable to load existing stats)';
-		});
+	var status = document.getElementById('stat-status');
+	if (status) status.textContent = 'Logging stats for: ' + playerName;
 }
 
 // Stat-logging buttons on the Game page (FG Att., FG Made, etc.) - each
-// click logs that stat to whichever athlete is currently selected. Reuses
-// the persisted game (see GAME_ID_STORAGE_KEY) if one's already in
-// progress, or starts a new one (labeled with both teams' names) on the
-// first click otherwise.
+// click updates whichever athlete is currently selected, entirely
+// client-side. Nothing reaches the database until "End/Record Game" is
+// clicked and confirmed (see initEndRecordGame below).
 function initStatButtons() {
 	// Each stat has two controls sharing the same data-stat: the main
 	// .stat-btn (data-delta="1") and a small .stat-btn-minus (data-delta="-1")
 	// to correct a mis-click without resetting the whole game.
 	var buttons = document.querySelectorAll('.stat-btn[data-stat], .stat-btn-minus[data-stat]');
 	if (!buttons.length) return;
-
-	if (gameTrackingState.gameId) {
-		var initialStatus = document.getElementById('stat-status');
-		if (initialStatus) {
-			initialStatus.textContent = 'Resuming your in-progress game - select an athlete below to continue logging stats.';
-		}
-	}
-
-	function ensureGameStarted() {
-		if (gameTrackingState.gameId) {
-			return Promise.resolve(gameTrackingState.gameId);
-		}
-
-		var teamA = gameTrackingState.teamNameBySide[0] || 'Team A';
-		var teamB = gameTrackingState.teamNameBySide[1] || 'Team B';
-
-		return fetch('/api/games/start', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ sourceFile: teamA + ' vs ' + teamB }),
-		})
-			.then(function (response) { return response.json(); })
-			.then(function (data) {
-				gameTrackingState.gameId = data.game.id;
-				storeGameId(data.game.id);
-				return gameTrackingState.gameId;
-			});
-	}
-
-	function postStat(gameId, playerName, stat, delta) {
-		return fetch('/api/games/' + gameId + '/box-score', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ playerName: playerName, stat: stat, delta: delta }),
-		}).then(function (response) {
-			return response.json().then(function (data) {
-				return { status: response.status, data: data };
-			});
-		});
-	}
 
 	buttons.forEach(function (btn) {
 		btn.addEventListener('click', function () {
@@ -964,32 +939,175 @@ function initStatButtons() {
 			var stat = btn.dataset.stat;
 			var delta = btn.dataset.delta ? parseInt(btn.dataset.delta, 10) : 1;
 
-			ensureGameStarted()
-				.then(function (gameId) { return postStat(gameId, playerName, stat, delta); })
-				.then(function (result) {
-					if (result.status === 404) {
-						// The persisted game no longer exists (e.g. deleted from
-						// the Dashboard) - drop it, start a fresh one, and retry
-						// this click once rather than failing outright.
-						gameTrackingState.gameId = null;
-						clearStoredGameId();
-						return ensureGameStarted().then(function (gameId) {
-							return postStat(gameId, playerName, stat, delta);
-						});
-					}
-					return result;
-				})
-				.then(function (result) {
-					if (!result.data.boxScore) {
-						if (status) status.textContent = result.data.error || 'Something went wrong logging that stat.';
-						return;
-					}
-					applyBoxScoreToButtons(result.data.boxScore);
-					if (status) status.textContent = 'Logging stats for: ' + playerName;
-				})
-				.catch(function () {
-					if (status) status.textContent = 'Something went wrong logging that stat.';
-				});
+			var stats = gameTrackingState.playerStatsByName[playerName];
+			if (!stats) {
+				stats = {};
+				gameTrackingState.playerStatsByName[playerName] = stats;
+			}
+			stats[stat] = Math.max((stats[stat] || 0) + delta, 0);
+
+			applyBoxScoreToButtons(stats);
+			if (status) status.textContent = 'Logging stats for: ' + playerName;
 		});
+	});
+}
+
+// Resets the Game page back to a blank slate after a game has been
+// successfully recorded: clears tracked stats, deselects the athlete,
+// resets the clock and quarter toggles, and puts the team slot back to
+// "Add Team" so a new game can be tracked.
+function clearGameFields() {
+	gameTrackingState.teamName = null;
+	gameTrackingState.selectedPlayerName = null;
+	if (gameTrackingState.selectedItemEl) {
+		gameTrackingState.selectedItemEl.classList.remove('selected');
+	}
+	gameTrackingState.selectedItemEl = null;
+	gameTrackingState.playerStatsByName = {};
+
+	applyBoxScoreToButtons(null);
+
+	if (gameClockControls) gameClockControls.reset();
+
+	document.querySelectorAll('.quarter-btn').forEach(function (btn) {
+		btn.classList.remove('active');
+	});
+
+	document.querySelectorAll('.matchup-side').forEach(function (side) {
+		var picker = side.querySelector('.game-team-picker');
+		var rosterBox = side.querySelector('.game-roster');
+		var rosterList = side.querySelector('.game-roster-list');
+		if (picker) picker.hidden = true;
+		if (rosterBox) rosterBox.hidden = true;
+		if (rosterList) rosterList.innerHTML = '';
+	});
+
+	var endBtn = document.getElementById('end-record-game-btn');
+	var confirmSection = document.getElementById('end-game-confirm');
+	if (confirmSection) confirmSection.hidden = true;
+	if (endBtn) endBtn.hidden = false;
+}
+
+// "End/Record Game" button + its confirmation step. Nothing is sent to the
+// database until the coach clicks "End/Record Game" and then confirms;
+// clicking "End/Record Game" itself only reveals the confirmation - it
+// doesn't send anything yet. On success, sends every tracked athlete's
+// accumulated stats in one request to /api/advanced-stats/record-game (the
+// same game_records/player_stats tables CSV uploads write to), then clears
+// the page via clearGameFields.
+function initEndRecordGame() {
+	var endBtn = document.getElementById('end-record-game-btn');
+	var confirmSection = document.getElementById('end-game-confirm');
+	var confirmBtn = document.getElementById('confirm-end-game-btn');
+	var cancelBtn = document.getElementById('cancel-end-game-btn');
+	if (!endBtn || !confirmSection || !confirmBtn || !cancelBtn) return;
+
+	function hasAnyLoggedStats() {
+		return Object.keys(gameTrackingState.playerStatsByName).some(function (name) {
+			var stats = gameTrackingState.playerStatsByName[name];
+			return Object.keys(stats).some(function (key) { return (stats[key] || 0) !== 0; });
+		});
+	}
+
+	function todayDateString() {
+		var today = new Date();
+		var month = today.getMonth() + 1;
+		var day = today.getDate();
+		return today.getFullYear() + '-' + (month < 10 ? '0' : '') + month + '-' + (day < 10 ? '0' : '') + day;
+	}
+
+	function buildPlayersPayload() {
+		var players = [];
+		Object.keys(gameTrackingState.playerStatsByName).forEach(function (name) {
+			var s = gameTrackingState.playerStatsByName[name];
+			var hasStat = Object.keys(s).some(function (key) { return (s[key] || 0) !== 0; });
+			if (!hasStat) return;
+
+			players.push({
+				name: name,
+				playerNumber: null,
+				stats: {
+					mp: null,
+					points: (s.fgm || 0) * 2 + (s.tpm || 0) * 3 + (s.ftm || 0),
+					fgm: s.fgm || 0,
+					fga: s.fga || 0,
+					tpm: s.tpm || 0,
+					tpa: s.tpa || 0,
+					ftm: s.ftm || 0,
+					fta: s.fta || 0,
+					off_rebounds: s.offRebounds || 0,
+					def_rebounds: s.defRebounds || 0,
+					rebounds: (s.offRebounds || 0) + (s.defRebounds || 0),
+					assists: s.assists || 0,
+					steals: s.steals || 0,
+					blocks: s.blocks || 0,
+					turnovers: s.turnovers || 0,
+					fouls: s.fouls || 0,
+				},
+			});
+		});
+		return players;
+	}
+
+	endBtn.addEventListener('click', function () {
+		var status = document.getElementById('stat-status');
+
+		if (!gameTrackingState.teamName) {
+			if (status) status.textContent = 'Add a team before ending/recording the game.';
+			return;
+		}
+		if (!hasAnyLoggedStats()) {
+			if (status) status.textContent = 'Log at least one stat before ending/recording the game.';
+			return;
+		}
+
+		endBtn.hidden = true;
+		confirmSection.hidden = false;
+	});
+
+	cancelBtn.addEventListener('click', function () {
+		confirmSection.hidden = true;
+		endBtn.hidden = false;
+	});
+
+	confirmBtn.addEventListener('click', function () {
+		var status = document.getElementById('stat-status');
+		confirmBtn.disabled = true;
+		cancelBtn.disabled = true;
+		if (status) status.textContent = 'Recording game…';
+
+		fetch('/api/advanced-stats/record-game', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				gameDate: todayDateString(),
+				opponent: gameTrackingState.teamName,
+				location: null,
+				players: buildPlayersPayload(),
+			}),
+		})
+			.then(function (response) {
+				return response.json().then(function (data) {
+					return { ok: response.ok, data: data };
+				});
+			})
+			.then(function (result) {
+				confirmBtn.disabled = false;
+				cancelBtn.disabled = false;
+
+				if (!result.ok) {
+					if (status) status.textContent = result.data.error || 'Something went wrong recording the game.';
+					return;
+				}
+
+				clearGameFields();
+				var clearedStatus = document.getElementById('stat-status');
+				if (clearedStatus) clearedStatus.textContent = 'Game recorded! Select an athlete below to start a new game.';
+			})
+			.catch(function () {
+				confirmBtn.disabled = false;
+				cancelBtn.disabled = false;
+				if (status) status.textContent = 'Something went wrong recording the game.';
+			});
 	});
 }

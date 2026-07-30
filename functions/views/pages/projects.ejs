@@ -6,7 +6,18 @@
 
     <div class="game-clock">
       <div class="game-clock-display" id="game-clock-display">08:00</div>
-      <button type="button" class="team-btn" id="game-clock-toggle">Start</button>
+      <div class="game-clock-buttons">
+        <button type="button" class="team-btn" id="game-clock-toggle">Start</button>
+        <button type="button" class="team-btn end-game-btn" id="end-record-game-btn">End/Record Game</button>
+      </div>
+    </div>
+
+    <div class="end-game-confirm" id="end-game-confirm" hidden>
+      <p>Ready to end the game and record this data? This can't be undone.</p>
+      <div class="end-game-confirm-buttons">
+        <button type="button" class="team-btn" id="confirm-end-game-btn">Confirm &amp; Record</button>
+        <button type="button" class="team-btn end-game-cancel-btn" id="cancel-end-game-btn">Cancel</button>
+      </div>
     </div>
 
     <div class="quarter-toggles">
@@ -76,17 +87,6 @@
 
     <% if (typeof user !== 'undefined' && user) { %>
       <div class="matchup">
-        <div class="matchup-side">
-          <button type="button" class="team-btn game-add-team-btn">Add Team</button>
-          <ul class="team-list game-team-picker" hidden></ul>
-          <div class="game-roster" hidden>
-            <h3 class="game-roster-title"></h3>
-            <ul class="team-list game-roster-list"></ul>
-          </div>
-        </div>
-
-        <div class="matchup-vs">VS</div>
-
         <div class="matchup-side">
           <button type="button" class="team-btn game-add-team-btn">Add Team</button>
           <ul class="team-list game-team-picker" hidden></ul>

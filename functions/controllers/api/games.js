@@ -1,31 +1,21 @@
 const router = require('express').Router();
 const {
     createGameWithBoxScores,
-    getGamesForUser,
-    getBoxScoresForUser,
-    deleteGame,
-    createGame,
-    getPlayerBoxScore,
-    incrementPlayerBoxScoreStat,
 } = require('../../models/database');
 
-// Backs the CourtVision dashboard (views/pages/dashboard.ejs /
-// public/js/dashboard.js) - previously this data lived in Firestore and was
-// read/written directly from the browser; it's now scoped per logged-in
-// user through this API instead, same as the Team/Game features.
-//
-// The /start and /:gameId/box-score routes below back a second, separate
-// flow: live stat-logging on the Game page (public/js/common.js), where box
-// score rows are built up one stat click at a time against a game created
-// on the fly, rather than uploaded as a complete batch.
+// Backs the Dashboard's Manual Entry form (views/pages/dashboard.ejs /
+// public/js/dashboard.js) - the only remaining thing that writes to the
+// games/player_box_scores tables. CSV uploads and the Game page's
+// "End/Record Game" button both write to the separate
+// game_records/player_stats tables instead (see controllers/api/advancedStats.js),
+// which is also what the Dashboard/Team Analytics/Game Analytics/Player
+// Deep Dive pages read from - so data submitted here won't show up there.
 
 const MAX_SOURCE_FILE_LENGTH = 200;
 const MAX_PLAYER_NAME_LENGTH = 100;
 const MAX_PLAYERS_PER_GAME = 100;
 
 const STAT_FIELDS = ['minutes', 'points', 'assists', 'rebounds', 'steals', 'blocks', 'turnovers', 'fgm', 'fga', 'tpm'];
-
-const LIVE_STAT_KEYS = ['fga', 'fgm', 'tpa', 'tpm', 'fta', 'ftm', 'offRebounds', 'defRebounds', 'assists', 'steals', 'blocks', 'turnovers', 'fouls'];
 
 function requireAuth(req, res, next) {
     if (!res.locals.user) {
@@ -34,8 +24,8 @@ function requireAuth(req, res, next) {
     next();
 }
 
-// Validates and coerces the player rows from a CSV upload or manual entry
-// into a consistent shape. Returns null if the input isn't usable.
+// Validates and coerces the player rows from a manual entry into a
+// consistent shape. Returns null if the input isn't usable.
 function sanitizePlayers(players) {
     if (!Array.isArray(players) || players.length === 0 || players.length > MAX_PLAYERS_PER_GAME) {
         return null;
@@ -61,26 +51,6 @@ function sanitizePlayers(players) {
     return sanitized;
 }
 
-router.get('/', requireAuth, async (req, res) => {
-    try {
-        const games = await getGamesForUser(res.locals.user.id);
-        res.json({ games });
-    } catch (err) {
-        console.error('Failed to load games:', err.message);
-        res.status(500).json({ error: 'Something went wrong loading games.' });
-    }
-});
-
-router.get('/box-scores', requireAuth, async (req, res) => {
-    try {
-        const boxScores = await getBoxScoresForUser(res.locals.user.id);
-        res.json({ boxScores });
-    } catch (err) {
-        console.error('Failed to load box scores:', err.message);
-        res.status(500).json({ error: 'Something went wrong loading box scores.' });
-    }
-});
-
 router.post('/', requireAuth, async (req, res) => {
     const sourceFile = typeof (req.body && req.body.sourceFile) === 'string' ? req.body.sourceFile.trim() : '';
     const players = sanitizePlayers(req.body && req.body.players);
@@ -98,101 +68,6 @@ router.post('/', requireAuth, async (req, res) => {
     } catch (err) {
         console.error('Failed to create game:', err.message);
         res.status(500).json({ error: 'Something went wrong saving the game.' });
-    }
-});
-
-// Starts an empty game for the Game page's live stat-logging flow (box
-// scores get added one stat click at a time afterward).
-router.post('/start', requireAuth, async (req, res) => {
-    const sourceFile = typeof (req.body && req.body.sourceFile) === 'string' ? req.body.sourceFile.trim() : '';
-
-    if (!sourceFile || sourceFile.length > MAX_SOURCE_FILE_LENGTH) {
-        return res.status(400).json({ error: 'Please provide a source file name.' });
-    }
-
-    try {
-        const game = await createGame(res.locals.user.id, sourceFile);
-        res.status(201).json({ game });
-    } catch (err) {
-        console.error('Failed to start game:', err.message);
-        res.status(500).json({ error: 'Something went wrong starting the game.' });
-    }
-});
-
-router.get('/:gameId/box-score', requireAuth, async (req, res) => {
-    const gameId = Number(req.params.gameId);
-    const playerName = typeof req.query.playerName === 'string' ? req.query.playerName.trim() : '';
-
-    if (!Number.isInteger(gameId)) {
-        return res.status(400).json({ error: 'Invalid game id.' });
-    }
-    if (!playerName || playerName.length > MAX_PLAYER_NAME_LENGTH) {
-        return res.status(400).json({ error: 'Invalid player name.' });
-    }
-
-    try {
-        const boxScore = await getPlayerBoxScore(gameId, res.locals.user.id, playerName);
-        if (!boxScore) {
-            return res.status(404).json({ error: 'Game not found.' });
-        }
-        res.json({ boxScore });
-    } catch (err) {
-        console.error('Failed to load box score:', err.message);
-        res.status(500).json({ error: 'Something went wrong loading the box score.' });
-    }
-});
-
-// delta is restricted to +1/-1 (rather than accepting any integer) so a
-// single click can only ever nudge a stat one step - the minus button on
-// the Game page uses this to correct a mis-click.
-const ALLOWED_STAT_DELTAS = [1, -1];
-
-router.post('/:gameId/box-score', requireAuth, async (req, res) => {
-    const gameId = Number(req.params.gameId);
-    const playerName = typeof (req.body && req.body.playerName) === 'string' ? req.body.playerName.trim() : '';
-    const stat = typeof (req.body && req.body.stat) === 'string' ? req.body.stat.trim() : '';
-    const delta = req.body && req.body.delta !== undefined ? Number(req.body.delta) : 1;
-
-    if (!Number.isInteger(gameId)) {
-        return res.status(400).json({ error: 'Invalid game id.' });
-    }
-    if (!playerName || playerName.length > MAX_PLAYER_NAME_LENGTH) {
-        return res.status(400).json({ error: 'Invalid player name.' });
-    }
-    if (!LIVE_STAT_KEYS.includes(stat)) {
-        return res.status(400).json({ error: 'Invalid stat.' });
-    }
-    if (!ALLOWED_STAT_DELTAS.includes(delta)) {
-        return res.status(400).json({ error: 'Invalid delta.' });
-    }
-
-    try {
-        const boxScore = await incrementPlayerBoxScoreStat(gameId, res.locals.user.id, playerName, stat, delta);
-        if (!boxScore) {
-            return res.status(404).json({ error: 'Game not found.' });
-        }
-        res.json({ boxScore });
-    } catch (err) {
-        console.error('Failed to update box score:', err.message);
-        res.status(500).json({ error: 'Something went wrong updating the box score.' });
-    }
-});
-
-router.delete('/:gameId', requireAuth, async (req, res) => {
-    const gameId = Number(req.params.gameId);
-    if (!Number.isInteger(gameId)) {
-        return res.status(400).json({ error: 'Invalid game id.' });
-    }
-
-    try {
-        const deleted = await deleteGame(res.locals.user.id, gameId);
-        if (!deleted) {
-            return res.status(404).json({ error: 'Game not found.' });
-        }
-        res.status(204).end();
-    } catch (err) {
-        console.error('Failed to delete game:', err.message);
-        res.status(500).json({ error: 'Something went wrong deleting the game.' });
     }
 });
 

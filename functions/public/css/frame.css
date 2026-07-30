@@ -815,6 +815,12 @@ textarea.feedback-input {
 	font-variant-numeric: tabular-nums;
 }
 
+.game-clock-buttons {
+	display: flex;
+	flex-direction: row;
+	gap: 12px;
+}
+
 .game-clock .team-btn {
 	margin-top: 0;
 	min-width: 100px;
@@ -826,6 +832,50 @@ textarea.feedback-input {
 
 .game-clock .team-btn.active:hover {
 	background-color: #d92c2c;
+}
+
+.team-btn.end-game-btn {
+	background-color: var(--cv-card-bg);
+	border: 1px solid var(--cv-danger);
+	color: var(--cv-danger);
+}
+
+.team-btn.end-game-btn:hover {
+	background-color: var(--cv-danger);
+	color: #fff;
+}
+
+.end-game-confirm {
+	margin-top: 16px;
+	padding: 16px;
+	background-color: var(--cv-bg);
+	border: 1px solid var(--cv-danger);
+	border-radius: 6px;
+	text-align: center;
+}
+
+.end-game-confirm p {
+	margin: 0 0 12px;
+	color: var(--cv-text);
+	font-size: 14px;
+}
+
+.end-game-confirm-buttons {
+	display: flex;
+	justify-content: center;
+	gap: 12px;
+}
+
+.team-btn.end-game-cancel-btn {
+	background-color: transparent;
+	border: 1px solid var(--cv-border);
+	color: var(--cv-text-muted);
+}
+
+.team-btn.end-game-cancel-btn:hover {
+	border-color: var(--cv-text);
+	color: var(--cv-text);
+	background-color: transparent;
 }
 
 /* Quarter toggles */

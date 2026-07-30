@@ -10,13 +10,14 @@ const {
     getAllPlayerStatsForUser,
 } = require('../../models/database');
 
-// Backs the Dashboard's "Individual Athlete Stats" / "Team Stats" CSV
-// upload toggle - mirrors what a contributor's public/py/*_ingestion.py
-// scripts did directly against a standalone SQLite file. The CSV parsing
-// and column mapping happen client-side (public/js/dashboard.js), same as
-// the existing box-score upload; these routes just validate and write the
-// already-parsed rows to the game_records/game_stats/players/player_stats
-// tables (see models/database.js), scoped to the logged-in user.
+// Backs both the Dashboard's "Individual Athlete Stats" / "Team Stats" CSV
+// upload toggle (mirroring what a contributor's public/py/*_ingestion.py
+// scripts did directly against a standalone SQLite file) and the Game
+// page's "End/Record Game" button - the single shared destination for both
+// flows is the game_records/game_stats/players/player_stats tables (see
+// models/database.js), scoped to the logged-in user. The Dashboard's
+// Manual Entry form is the only remaining thing that still writes to the
+// separate, older games/player_box_scores tables (controllers/api/games.js).
 
 const MAX_TEXT_LENGTH = 200;
 const MAX_PLAYERS_PER_GAME = 100;
@@ -59,11 +60,12 @@ function isValidDateString(value) {
     return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
-// Lists CSV-ingested games and their season-wide player stats - this is the
+// Lists recorded games and their season-wide player stats - this is the
 // only data source the Dashboard/Team Analytics/Game Analytics/Player Deep
-// Dive pages read from. The Game page's live stat-logging and the
-// Dashboard's Manual Entry form write to the separate games/player_box_scores
-// tables (see controllers/api/games.js) instead, and are never surfaced here.
+// Dive pages read from. Only CSV uploads and the Game page's "End/Record
+// Game" button write here; the Dashboard's Manual Entry form still writes
+// to the separate games/player_box_scores tables (controllers/api/games.js)
+// instead, and is never surfaced here.
 router.get('/games', requireAuth, async (req, res) => {
     try {
         const games = await getGameRecordsForUser(res.locals.user.id);
@@ -185,6 +187,55 @@ router.post('/players', requireAuth, async (req, res) => {
     } catch (err) {
         console.error('Failed to ingest player stats:', err.message);
         res.status(500).json({ error: 'Something went wrong ingesting player stats.' });
+    }
+});
+
+// Backs the Game page's "End/Record Game" button (public/js/common.js) -
+// unlike the CSV flow above, there's no separate "Team Stats" upload step,
+// so this creates the game record and every tracked player's stat line for
+// it in one request. Only called once, when the coach confirms they're
+// ready to end the game; nothing is sent to the database before that.
+router.post('/record-game', requireAuth, async (req, res) => {
+    const gameDate = req.body && req.body.gameDate;
+    const opponent = typeof (req.body && req.body.opponent) === 'string' ? req.body.opponent.trim() : '';
+    const location = typeof (req.body && req.body.location) === 'string' ? req.body.location.trim() : null;
+    const players = req.body && req.body.players;
+
+    if (!isValidDateString(gameDate)) {
+        return res.status(400).json({ error: 'Invalid or missing game date.' });
+    }
+    if (!opponent || opponent.length > MAX_TEXT_LENGTH) {
+        return res.status(400).json({ error: 'Invalid or missing team name.' });
+    }
+    if (!Array.isArray(players) || players.length === 0 || players.length > MAX_PLAYERS_PER_GAME) {
+        return res.status(400).json({ error: 'Please log at least one stat before recording the game.' });
+    }
+    for (const player of players) {
+        const name = player && player.name;
+        if (typeof name !== 'string' || !name.trim() || name.length > MAX_TEXT_LENGTH) {
+            return res.status(400).json({ error: 'Every player row needs a valid name.' });
+        }
+    }
+
+    try {
+        const game = await createGameRecord(res.locals.user.id, { gameDate, opponent, location });
+
+        const created = [];
+        for (const player of players) {
+            const playerNumber = Number.isFinite(Number(player.playerNumber)) ? Number(player.playerNumber) : null;
+            const dbPlayer = await findOrCreatePlayer(res.locals.user.id, {
+                name: player.name.trim(),
+                playerNumber,
+                playerClass: null,
+            });
+            const stats = await createPlayerStats(res.locals.user.id, game.id, dbPlayer.id, sanitizeStats(player.stats, PLAYER_STATS_STAT_KEYS));
+            created.push(stats);
+        }
+
+        res.status(201).json({ game, playerStats: created });
+    } catch (err) {
+        console.error('Failed to record game:', err.message);
+        res.status(500).json({ error: 'Something went wrong recording the game.' });
     }
 });
 
