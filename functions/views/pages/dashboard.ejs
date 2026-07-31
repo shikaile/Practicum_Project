@@ -156,6 +156,20 @@
         border-bottom-color: #ff6600;
     }
 
+    .dashboard-page .sortable-th {
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+    }
+    .dashboard-page .sortable-th:hover {
+        color: #ffffff;
+    }
+    .dashboard-page .sort-arrow {
+        display: inline-block;
+        width: 12px;
+        font-size: 11px;
+    }
+
     .dashboard-page .csv-type-toggle {
         display: flex;
         gap: 10px;
@@ -397,17 +411,17 @@
                 <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
                     <thead>
                         <tr style="border-bottom: 2px solid #ff6600; color: #ff6600;">
-                            <th style="padding: 12px 4px;">Player Name</th>
-                            <th style="padding: 12px 4px; text-align: center;">GP</th>
-                            <th style="padding: 12px 4px; text-align: center;">MPG</th>
-                            <th style="padding: 12px 4px; text-align: center;">PPG</th>
-                            <th style="padding: 12px 4px; text-align: center;">APG</th>
-                            <th style="padding: 12px 4px; text-align: center;">RPG</th>
-                            <th style="padding: 12px 4px; text-align: center;">SPG</th>
-                            <th style="padding: 12px 4px; text-align: center;">BPG</th>
-                            <th style="padding: 12px 4px; text-align: center;">TPG</th>
-                            <th style="padding: 12px 4px; text-align: center;">eFG%</th>
-                            <th style="padding: 12px 4px; text-align: right;">Momentum Score</th>
+                            <th class="sortable-th" data-sort-key="name" style="padding: 12px 4px;">Player Name<span class="sort-arrow"></span></th>
+                            <th class="sortable-th" data-sort-key="games" style="padding: 12px 4px; text-align: center;">GP<span class="sort-arrow"></span></th>
+                            <th class="sortable-th" data-sort-key="avgMin" style="padding: 12px 4px; text-align: center;">MPG<span class="sort-arrow"></span></th>
+                            <th class="sortable-th" data-sort-key="avgPts" style="padding: 12px 4px; text-align: center;">PPG<span class="sort-arrow"></span></th>
+                            <th class="sortable-th" data-sort-key="avgAst" style="padding: 12px 4px; text-align: center;">APG<span class="sort-arrow"></span></th>
+                            <th class="sortable-th" data-sort-key="avgReb" style="padding: 12px 4px; text-align: center;">RPG<span class="sort-arrow"></span></th>
+                            <th class="sortable-th" data-sort-key="avgStl" style="padding: 12px 4px; text-align: center;">SPG<span class="sort-arrow"></span></th>
+                            <th class="sortable-th" data-sort-key="avgBlk" style="padding: 12px 4px; text-align: center;">BPG<span class="sort-arrow"></span></th>
+                            <th class="sortable-th" data-sort-key="avgTo" style="padding: 12px 4px; text-align: center;">TPG<span class="sort-arrow"></span></th>
+                            <th class="sortable-th" data-sort-key="eFG" style="padding: 12px 4px; text-align: center;">eFG%<span class="sort-arrow"></span></th>
+                            <th class="sortable-th" data-sort-key="momentumScore" style="padding: 12px 4px; text-align: right;">Momentum Score<span class="sort-arrow"></span></th>
                         </tr>
                     </thead>
                     <tbody id="roster-trends-body">

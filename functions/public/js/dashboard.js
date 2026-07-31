@@ -404,6 +404,82 @@ document.getElementById("game-management-body").addEventListener("click", (event
     deleteGameRecord(btn.dataset.gameId, btn.dataset.sourceFile);
 });
 
+// Sortable "Two-Way Roster Analytics" table. currentRosterRows holds the
+// last-computed season averages as plain numbers (see loadSeasonAnalytics);
+// clicking a column header re-sorts and re-renders that array in place,
+// with no re-fetch needed.
+let currentRosterRows = [];
+let rosterSort = { key: null, direction: "asc" };
+
+function renderRosterRows(rows) {
+    const tbody = document.getElementById("roster-trends-body");
+    tbody.innerHTML = "";
+
+    if (rows.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="11" style="padding: 20px; text-align: center; color: #9aa5b5; font-style: italic;">No season data found.</td></tr>`;
+        return;
+    }
+
+    rows.forEach((row) => {
+        let momentumBadge = `<span style="color: #9aa5b5; font-weight: bold;">${row.momentumScore > 0 ? '+' : ''}${row.momentumScore}</span>`;
+        if (row.momentumScore >= 0.5) {
+            momentumBadge = `<span style="background: rgba(0, 255, 102, 0.15); color: #00ff66; padding: 4px 8px; border-radius: 4px; font-weight: bold;">🔥 +${row.momentumScore}</span>`;
+        } else if (row.momentumScore <= -0.5) {
+            momentumBadge = `<span style="background: rgba(255, 51, 51, 0.15); color: #ff3333; padding: 4px 8px; border-radius: 4px; font-weight: bold;">📉 ${row.momentumScore}</span>`;
+        }
+
+        tbody.innerHTML += `
+            <tr style="border-bottom: 1px solid #283141;">
+                <td style="padding: 12px 4px; font-weight: 600; color: white;">${row.name}</td>
+                <td style="padding: 12px 4px; text-align: center; color: #9aa5b5;">${row.games}</td>
+                <td style="padding: 12px 4px; text-align: center; color: white;">${row.avgMin.toFixed(1)}</td>
+                <td style="padding: 12px 4px; text-align: center; color: white;">${row.avgPts.toFixed(1)}</td>
+                <td style="padding: 12px 4px; text-align: center; color: white;">${row.avgAst.toFixed(1)}</td>
+                <td style="padding: 12px 4px; text-align: center; color: white;">${row.avgReb.toFixed(1)}</td>
+                <td style="padding: 12px 4px; text-align: center; color: #00ff66;">${row.avgStl.toFixed(1)}</td>
+                <td style="padding: 12px 4px; text-align: center; color: #00ff66;">${row.avgBlk.toFixed(1)}</td>
+                <td style="padding: 12px 4px; text-align: center; color: #ff3333;">${row.avgTo.toFixed(1)}</td>
+                <td style="padding: 12px 4px; text-align: center; color: #00ff66; font-weight: 600;">${row.eFG.toFixed(1)}%</td>
+                <td style="padding: 12px 4px; text-align: right;">${momentumBadge}</td>
+            </tr>
+        `;
+    });
+}
+
+function updateSortIndicators() {
+    document.querySelectorAll(".sortable-th").forEach((th) => {
+        const arrow = th.querySelector(".sort-arrow");
+        if (!arrow) return;
+        arrow.textContent = th.dataset.sortKey === rosterSort.key ? (rosterSort.direction === "asc" ? " ▲" : " ▼") : "";
+    });
+}
+
+function applyCurrentRosterSort() {
+    const rows = currentRosterRows.slice();
+    if (rosterSort.key) {
+        rows.sort((a, b) => {
+            const key = rosterSort.key;
+            const cmp = key === "name" ? a.name.localeCompare(b.name) : a[key] - b[key];
+            return rosterSort.direction === "asc" ? cmp : -cmp;
+        });
+    }
+    renderRosterRows(rows);
+    updateSortIndicators();
+}
+
+document.querySelectorAll(".sortable-th").forEach((th) => {
+    th.addEventListener("click", () => {
+        const key = th.dataset.sortKey;
+        if (rosterSort.key === key) {
+            rosterSort.direction = rosterSort.direction === "asc" ? "desc" : "asc";
+        } else {
+            rosterSort.key = key;
+            rosterSort.direction = "asc";
+        }
+        applyCurrentRosterSort();
+    });
+});
+
 // Aggregation and advanced calculation framework loop - reads only from the
 // CSV-ingested game_records/player_stats tables (via /api/advanced-stats/*),
 // so this view only ever reflects uploaded CSVs, never the Game page's live
@@ -463,56 +539,44 @@ async function loadSeasonAnalytics() {
             playerMap[name].gamePointsArray.push({ gameId: data.gameId, pts: Number(data.points) || 0 });
         });
 
-        const tbody = document.getElementById("roster-trends-body");
-        tbody.innerHTML = "";
-
         const playersArray = Object.values(playerMap);
         if (playersArray.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="11" style="padding: 20px; text-align: center; color: #9aa5b5; font-style: italic;">No season data found.</td></tr>`;
+            currentRosterRows = [];
+            document.getElementById("roster-trends-body").innerHTML =
+                `<tr><td colspan="11" style="padding: 20px; text-align: center; color: #9aa5b5; font-style: italic;">No season data found.</td></tr>`;
             document.getElementById("assistant-card").style.display = "none";
             return;
         }
 
-        playersArray.forEach((player) => {
-            const avgMin = (player.min / player.games).toFixed(1);
-            const avgPts = (player.pts / player.games).toFixed(1);
-            const avgAst = (player.ast / player.games).toFixed(1);
-            const avgReb = (player.reb / player.games).toFixed(1);
-            const avgStl = (player.stl / player.games).toFixed(1);
-            const avgBlk = (player.blk / player.games).toFixed(1);
-            const avgTo = (player.to / player.games).toFixed(1);
-            const eFG = player.fga > 0 ? (((player.fgm + (0.5 * player.tpm)) / player.fga) * 100).toFixed(1) + "%" : "0.0%";
+        // Builds the sortable rows once as plain numbers (not pre-formatted
+        // strings) so re-sorting later doesn't need to re-fetch or re-parse
+        // anything - see renderRosterRows/applyCurrentRosterSort below.
+        currentRosterRows = playersArray.map((player) => {
+            const avgPts = player.pts / player.games;
 
             let momentumScore = 0;
             if (player.gamePointsArray.length >= 2) {
                 player.gamePointsArray.sort((a, b) => a.gameId - b.gameId);
                 const recentAvg = (Number(player.gamePointsArray[player.gamePointsArray.length - 1].pts) + Number(player.gamePointsArray[player.gamePointsArray.length - 2].pts)) / 2;
-                momentumScore = parseFloat((recentAvg - parseFloat(avgPts)).toFixed(1));
+                momentumScore = parseFloat((recentAvg - avgPts).toFixed(1));
             }
 
-            let momentumBadge = `<span style="color: #9aa5b5; font-weight: bold;">${momentumScore > 0 ? '+' : ''}${momentumScore}</span>`;
-            if (momentumScore >= 0.5) {
-                momentumBadge = `<span style="background: rgba(0, 255, 102, 0.15); color: #00ff66; padding: 4px 8px; border-radius: 4px; font-weight: bold;">🔥 +${momentumScore}</span>`;
-            } else if (momentumScore <= -0.5) {
-                momentumBadge = `<span style="background: rgba(255, 51, 51, 0.15); color: #ff3333; padding: 4px 8px; border-radius: 4px; font-weight: bold;">📉 ${momentumScore}</span>`;
-            }
-
-            tbody.innerHTML += `
-                <tr style="border-bottom: 1px solid #283141;">
-                    <td style="padding: 12px 4px; font-weight: 600; color: white;">${player.name}</td>
-                    <td style="padding: 12px 4px; text-align: center; color: #9aa5b5;">${player.games}</td>
-                    <td style="padding: 12px 4px; text-align: center; color: white;">${avgMin}</td>
-                    <td style="padding: 12px 4px; text-align: center; color: white;">${avgPts}</td>
-                    <td style="padding: 12px 4px; text-align: center; color: white;">${avgAst}</td>
-                    <td style="padding: 12px 4px; text-align: center; color: white;">${avgReb}</td>
-                    <td style="padding: 12px 4px; text-align: center; color: #00ff66;">${avgStl}</td>
-                    <td style="padding: 12px 4px; text-align: center; color: #00ff66;">${avgBlk}</td>
-                    <td style="padding: 12px 4px; text-align: center; color: #ff3333;">${avgTo}</td>
-                    <td style="padding: 12px 4px; text-align: center; color: #00ff66; font-weight: 600;">${eFG}</td>
-                    <td style="padding: 12px 4px; text-align: right;">${momentumBadge}</td>
-                </tr>
-            `;
+            return {
+                name: player.name,
+                games: player.games,
+                avgMin: player.min / 60 / player.games, // player.min is stored in seconds
+                avgPts,
+                avgAst: player.ast / player.games,
+                avgReb: player.reb / player.games,
+                avgStl: player.stl / player.games,
+                avgBlk: player.blk / player.games,
+                avgTo: player.to / player.games,
+                eFG: player.fga > 0 ? ((player.fgm + (0.5 * player.tpm)) / player.fga) * 100 : 0,
+                momentumScore,
+            };
         });
+
+        applyCurrentRosterSort();
 
         // Multi-Variable Tactical Insights Engine Sync
         const assistantCard = document.getElementById("assistant-card");

@@ -919,6 +919,15 @@ function selectAthlete(playerName, itemEl) {
 // click updates whichever athlete is currently selected, entirely
 // client-side. Nothing reaches the database until "End/Record Game" is
 // clicked and confirmed (see initEndRecordGame below).
+// A made shot is always also an attempt, so logging a make bumps the
+// matching attempt stat by the same amount (and a correction via the minus
+// button un-bumps it too, so the two never drift out of sync).
+var MADE_TO_ATTEMPT_STAT = {
+	fgm: 'fga',
+	tpm: 'tpa',
+	ftm: 'fta',
+};
+
 function initStatButtons() {
 	// Each stat has two controls sharing the same data-stat: the main
 	// .stat-btn (data-delta="1") and a small .stat-btn-minus (data-delta="-1")
@@ -945,6 +954,11 @@ function initStatButtons() {
 				gameTrackingState.playerStatsByName[playerName] = stats;
 			}
 			stats[stat] = Math.max((stats[stat] || 0) + delta, 0);
+
+			var attemptStat = MADE_TO_ATTEMPT_STAT[stat];
+			if (attemptStat) {
+				stats[attemptStat] = Math.max((stats[attemptStat] || 0) + delta, 0);
+			}
 
 			applyBoxScoreToButtons(stats);
 			if (status) status.textContent = 'Logging stats for: ' + playerName;
