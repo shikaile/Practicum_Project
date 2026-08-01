@@ -68,7 +68,7 @@ function renderGameMatrix(selectedGameId) {
         tbody.innerHTML += `
             <tr>
                 <td style="font-weight:600; color:white;">${row.playerName}</td>
-                <td style="text-align:center;">${row.minutes || 0}</td>
+                <td style="text-align:center;">${row.minutes ? (row.minutes / 60).toFixed(1) : 0}</td>
                 <td style="text-align:center; color:white; font-weight:600;">${row.points || 0}</td>
                 <td style="text-align:center;">${row.assists || 0}</td>
                 <td style="text-align:center;">${row.rebounds || 0}</td>

@@ -54,7 +54,7 @@ async function loadTeamAnalytics() {
                 <tr>
                     <td style="font-weight:600; color:white;">${p.name}</td>
                     <td style="text-align:center;">${p.games}</td>
-                    <td style="text-align:center;">${p.min}</td>
+                    <td style="text-align:center;">${(p.min / 60).toFixed(1)}</td>
                     <td style="text-align:center; color:white; font-weight:600;">${p.pts}</td>
                     <td style="text-align:center;">${p.ast}</td>
                     <td style="text-align:center;">${p.reb}</td>
