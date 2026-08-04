@@ -44,8 +44,11 @@ df = pd.read_csv(CSV_PATH)
 
 # The home/away "Team" column is unreliable. Instead, filter out opponent rows by
 # checking whether the Athlete name is prefixed with the opponent's name
-# (mp-advantage auto-generates opponent placeholder names as "{OpponentName}_# Player").
-my_players_df = df[~df["Athlete"].str.startswith(f"{opponent}_")].copy()
+# (mp-advantage auto-generates opponent placeholder names as "{OpponentName}_# Player",
+# replacing any spaces in the team name with underscores -- e.g. "Allen Park" becomes
+# "Allen_Park_3 Player"). We normalize the opponent name the same way before comparing.
+opponent_prefix = opponent.replace(" ", "_") + "_"
+my_players_df = df[~df["Athlete"].str.startswith(opponent_prefix)].copy()
 print(f"Filtered {len(df)} total rows down to {len(my_players_df)} rows for {MY_TEAM_NAME}.")
 
 # ---------- Helper: convert "MM:SS" into total seconds ----------
